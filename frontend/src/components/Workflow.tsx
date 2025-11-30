@@ -74,7 +74,7 @@ function Workflow() {
   const [workflowId, setWorkflowId] = useState<string>(id || generateWorkflowId());
   const [workflowTitle, setWorkflowTitle] = useState<string>(() => id ? 'New Workflow' : generateUniqueName());
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
-  const [workflowStatus, setWorkflowStatus] = useState<'draft' | 'published'>('draft');
+  const [workflowStatus, setWorkflowStatus] = useState<'draft' | 'published' | 'paused'>('draft');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(!!id);
   
@@ -674,6 +674,8 @@ function Workflow() {
                 emailNode.data.metadata.schedule === 'Weekly' ? 'weekly' : 'daily-9am',
       format: emailNode.data.metadata.format === 'HTML' ? 'html' : 
               emailNode.data.metadata.format === 'Plain Text' ? 'plain' : 'html',
+      sentCount: 0,
+      isActive: status === 'published',
     } : undefined;
 
     const workflowData = {

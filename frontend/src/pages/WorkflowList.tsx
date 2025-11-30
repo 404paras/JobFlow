@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import type { Workflow } from '../lib/types';
 import { api } from '../lib/api';
-import { Trash2, Play, Square, LogOut, Plus, Mail, FileText, AlertCircle, Power, Clock, Info, Zap, ZapOff } from 'lucide-react';
+import { Trash2, Play, Square, LogOut, Plus, Mail, FileText, AlertCircle, Clock, Info, Zap, ZapOff } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialog';
 
 export default function WorkflowList() {
