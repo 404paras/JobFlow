@@ -59,8 +59,8 @@ tsconfig.tsbuildinfo
 *.key
 secrets/
 
-# Scraped job data
-Jobs/
+# Scraped job data (not src/modules/jobs which is source code)
+/Jobs/
 scraped-data/
 jobs-data/
 
