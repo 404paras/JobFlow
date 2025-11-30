@@ -1,0 +1,73 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Cache
+.cache/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# MongoDB local data
+data/
+mongodb-data/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+
+# Secrets
+*.pem
+*.key
+secrets/
+
+# Scraped job data
+Jobs/
+scraped-data/
+jobs-data/
+
+# Debug
+.debug/
+
+# Puppeteer Chrome
+.chrome/
+chromium/
+
