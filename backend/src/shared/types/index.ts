@@ -212,12 +212,5 @@ export interface ApiResponse<T = any> {
   errors?: Array<{ field: string; message: string }>;
 }
 
-// ============================================
-// Request Extensions
-// ============================================
-
-export interface RequestWithLogger extends Request {
-  requestId?: string;
-  startTime?: number;
-}
+// Request extensions are defined in src/types/express.d.ts
 

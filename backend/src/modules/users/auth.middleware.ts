@@ -2,10 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { userService } from './user.service';
 import { UnauthorizedError } from '../../shared/middleware/error-handler';
 
-export interface AuthRequest extends Request {
-  userId?: string;
-  userEmail?: string;
-}
+// Use Express.Request directly - extended via types/express.d.ts
+export type AuthRequest = Request;
 
 /**
  * Middleware to authenticate requests using JWT
