@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
+import { FeedbackDialog } from '../components/FeedbackDialog';
+import { LogOut, ArrowRight } from 'lucide-react';
 
 export default function Home() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -17,19 +19,23 @@ export default function Home() {
       {/* Header */}
       <header className="relative z-10 border-b border-gray-100 bg-white/70 backdrop-blur-xl sticky top-0">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-              <span className="text-white font-bold text-lg">J</span>
-            </div>
+          <Link to={isAuthenticated ? "/workflows" : "/"} className="flex items-center gap-3 group">
+            <img src="/logo.svg" alt="JobFlow" className="w-10 h-10 shadow-lg shadow-purple-200 rounded-xl group-hover:scale-105 transition-transform" />
             <h1 className="text-xl font-bold text-gray-900">
               JobFlow
             </h1>
-          </div>
+            <span className="px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-md shadow-sm">
+              BETA
+            </span>
+          </Link>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Anonymous Feedback Dialog */}
+            <FeedbackDialog />
+
             {isAuthenticated ? (
               <>
-                <span className="text-gray-600 text-sm hidden sm:block">
+                <span className="text-gray-600 text-sm hidden md:block">
                   Welcome, {user?.name}
                 </span>
                 <Link to="/workflows">
@@ -37,17 +43,29 @@ export default function Home() {
                     My Workflows
                   </Button>
                 </Link>
+                <Button 
+                  onClick={logout}
+                  variant="outline" 
+                  className="border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} className="mr-2" />
+                  Logout
+                </Button>
               </>
             ) : (
               <>
                 <Link to="/login">
-                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+                  <Button 
+                    variant="ghost" 
+                    className="text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 font-medium px-4"
+                  >
                     Sign In
                   </Button>
                 </Link>
                 <Link to="/register">
-                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200">
-                    Get Started
+                  <Button className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_100%] hover:bg-right transition-all duration-300 text-white shadow-lg shadow-indigo-200/50 font-semibold px-6 rounded-full">
+                    Get Started Free
+                    <ArrowRight size={16} className="ml-2" />
                   </Button>
                 </Link>
               </>
@@ -161,7 +179,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-gray-100 bg-white/50 backdrop-blur-sm py-8">
         <div className="max-w-7xl mx-auto px-6 text-center text-gray-500 text-sm">
-          © 2024 JobFlow. Built to automate your job search.
+          © 2025 JobFlow. Built with ❤️ by <a href="https://github.com/404paras" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-700 font-medium">Paras Garg</a>
         </div>
       </footer>
     </div>

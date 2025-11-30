@@ -10,11 +10,14 @@ export interface IWorkflow {
   title: string;
   status: WorkflowStatus;
   userId?: mongoose.Types.ObjectId | string;
-  userEmail?: string; // Denormalized for easy access
+  userEmail?: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   nodeCount: number;
   emailConfig?: EmailConfig;
+  isActive: boolean;
+  activatedAt?: Date;
+  deactivatesAt?: Date;
   lastExecutedAt?: Date;
   executionCount: number;
   createdAt: Date;
@@ -113,6 +116,18 @@ const WorkflowSchema = new Schema<IWorkflowDocument>(
     emailConfig: {
       type: EmailConfigSchema,
     },
+    isActive: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    activatedAt: {
+      type: Date,
+    },
+    deactivatesAt: {
+      type: Date,
+      index: true,
+    },
     lastExecutedAt: {
       type: Date,
     },
@@ -139,6 +154,8 @@ const WorkflowSchema = new Schema<IWorkflowDocument>(
 
 WorkflowSchema.index({ userId: 1, status: 1 });
 WorkflowSchema.index({ status: 1, 'emailConfig.isActive': 1 });
+WorkflowSchema.index({ userId: 1, isActive: 1 });
+WorkflowSchema.index({ isActive: 1, deactivatesAt: 1 });
 WorkflowSchema.index({ createdAt: -1 });
 
 // ============================================
@@ -164,8 +181,22 @@ WorkflowSchema.statics.findPublished = function () {
 WorkflowSchema.statics.findActiveEmailWorkflows = function () {
   return this.find({
     status: 'published',
+    isActive: true,
     'emailConfig.isActive': true,
   });
+};
+
+WorkflowSchema.statics.findActiveWorkflowByUser = function (userId: string) {
+  return this.findOne({ userId, isActive: true });
+};
+
+WorkflowSchema.statics.deactivateExpiredWorkflows = async function () {
+  const now = new Date();
+  const result = await this.updateMany(
+    { isActive: true, deactivatesAt: { $lte: now } },
+    { $set: { isActive: false }, $unset: { activatedAt: 1, deactivatesAt: 1 } }
+  );
+  return result.modifiedCount;
 };
 
 // ============================================

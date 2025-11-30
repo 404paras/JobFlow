@@ -1,6 +1,7 @@
 import cron, { ScheduledTask } from 'node-cron';
 import { Workflow, IWorkflowDocument } from '../workflows/workflow.model';
 import { executorService } from '../executor/executor.service';
+import { workflowService } from '../workflows/workflow.service';
 import { logger } from '../../shared/utils/logger';
 import { EmailSchedule } from '../../shared/types';
 
@@ -12,6 +13,7 @@ interface ScheduledWorkflow {
 
 export class SchedulerService {
   private scheduledWorkflows: Map<string, ScheduledWorkflow> = new Map();
+  private deactivationTask: ScheduledTask | null = null;
   private isRunning = false;
 
   /**
@@ -102,8 +104,10 @@ export class SchedulerService {
    */
   async loadAllWorkflows(): Promise<void> {
     try {
+      // Only load workflows that are published, active, and have email config
       const workflows = await Workflow.find({
         status: 'published',
+        isActive: true,
         'emailConfig.isActive': true,
       });
 
@@ -114,6 +118,23 @@ export class SchedulerService {
       }
     } catch (error) {
       logger.error('Failed to load scheduled workflows', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Check and deactivate expired workflows
+   */
+  async checkExpiredWorkflows(): Promise<void> {
+    try {
+      const count = await workflowService.deactivateExpiredWorkflows();
+      if (count > 0) {
+        // Refresh scheduler to remove deactivated workflows
+        await this.refresh();
+      }
+    } catch (error) {
+      logger.error('Failed to check expired workflows', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -132,6 +153,15 @@ export class SchedulerService {
 
     // Load all active workflows
     await this.loadAllWorkflows();
+
+    // Start deactivation checker (runs every hour)
+    this.deactivationTask = cron.schedule('0 * * * *', async () => {
+      logger.info('Checking for expired workflows...');
+      await this.checkExpiredWorkflows();
+    }, {
+      timezone: 'Asia/Kolkata',
+    });
+    this.deactivationTask.start();
 
     // Start all scheduled tasks
     this.scheduledWorkflows.forEach((scheduled) => {

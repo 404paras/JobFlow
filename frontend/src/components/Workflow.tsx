@@ -24,6 +24,16 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,6 +42,8 @@ import {
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { CustomNode, JobTriggerNode, JobSourceNode, NormalizeDataNode, FilterNode, DailyEmailNode, type NodeData } from './nodes';
+import { Trash2, Zap, Save, Rocket, ArrowLeft, Pencil, Lock, Plus, RefreshCw, Filter, Mail } from 'lucide-react';
+import { FeedbackDialog } from './FeedbackDialog';
 
 type WorkflowNode = Node<NodeData>;
 type WorkflowEdge = Edge;
@@ -49,12 +61,8 @@ const nodeTypes = {
 };
 
 const generateUniqueName = (): string => {
-  const adjectives = ['Swift', 'Smart', 'Quick', 'Auto', 'Daily', 'Pro', 'Active', 'Fast', 'Easy', 'Prime'];
-  const nouns = ['Finder', 'Hunter', 'Scout', 'Tracker', 'Seeker', 'Crawler', 'Stream', 'Flow', 'Sync', 'Bot'];
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const num = Math.floor(Math.random() * 100);
-  return `${adj} Job ${noun} ${num}`;
+  const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `Workflow${randomId}`;
 };
 
 function Workflow() {
@@ -99,6 +107,8 @@ function Workflow() {
   const [emailSchedule, setEmailSchedule] = useState<string>('daily-9am');
   const [emailFormat, setEmailFormat] = useState<string>('html');
   const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; nodeId: string; nodeCount: number } | null>(null);
 
   // Load workflow if editing existing one
   useEffect(() => {
@@ -134,6 +144,77 @@ function Workflow() {
     (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds) as WorkflowEdge[]),
     [],
   );
+
+  const getDownstreamNodes = useCallback((nodeId: string, allEdges: WorkflowEdge[]): Set<string> => {
+    const downstream = new Set<string>();
+    const queue = [nodeId];
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const outgoingEdges = allEdges.filter(e => e.source === currentId);
+      
+      for (const edge of outgoingEdges) {
+        if (!downstream.has(edge.target)) {
+          downstream.add(edge.target);
+          queue.push(edge.target);
+        }
+      }
+    }
+    
+    return downstream;
+  }, []);
+
+  const handleDeleteRequest = useCallback((nodeId: string) => {
+    if (isReadOnly) return;
+    setContextMenu(null);
+    
+    if (nodeId === 'job-trigger') {
+      setDeleteDialog({ open: true, nodeId, nodeCount: nodes.length });
+      return;
+    }
+
+    const downstreamNodes = getDownstreamNodes(nodeId, edges);
+    const nodesToDelete = new Set([nodeId, ...downstreamNodes]);
+    const nodeCount = nodesToDelete.size;
+    
+    setDeleteDialog({ open: true, nodeId, nodeCount });
+  }, [edges, isReadOnly, getDownstreamNodes, nodes.length]);
+
+  const confirmDelete = useCallback(() => {
+    if (!deleteDialog) return;
+    
+    const { nodeId } = deleteDialog;
+    
+    if (nodeId === 'job-trigger') {
+      setNodes([]);
+      setEdges([]);
+    } else {
+      const downstreamNodes = getDownstreamNodes(nodeId, edges);
+      const nodesToDelete = new Set([nodeId, ...downstreamNodes]);
+      
+      setNodes(nds => nds.filter(n => !nodesToDelete.has(n.id)));
+      setEdges(eds => eds.filter(e => !nodesToDelete.has(e.source) && !nodesToDelete.has(e.target)));
+    }
+    
+    setDeleteDialog(null);
+  }, [deleteDialog, edges, getDownstreamNodes]);
+
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: WorkflowNode) => {
+      if (isReadOnly) return;
+      event.preventDefault();
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        nodeId: node.id,
+      });
+    },
+    [isReadOnly]
+  );
+
+  const onPaneClick = useCallback(() => {
+    setContextMenu(null);
+  }, []);
 
   const onConnectStart = useCallback(
     (_event: unknown, params: { nodeId: string | null; handleType: string | null }) => {
@@ -337,25 +418,43 @@ function Workflow() {
   const addOrUpdateDailyEmailNode = () => {
     if (!emailRecipients.trim()) return;
 
+    const scheduleDisplay = emailSchedule === 'daily-9am' ? 'Daily at 9 AM' : 
+                           emailSchedule === 'daily-6pm' ? 'Daily at 6 PM' : 
+                           emailSchedule === 'weekly' ? 'Weekly' : emailSchedule;
+    const formatDisplay = emailFormat === 'html' ? 'HTML' : 
+                         emailFormat === 'plain' ? 'Plain Text' : 
+                         emailFormat === 'pdf' ? 'PDF Attachment' : emailFormat;
+
     const metadata = {
       recipients: emailRecipients || 'Not set',
-      schedule: emailSchedule === 'daily-9am' ? 'Daily at 9 AM' : 
-               emailSchedule === 'daily-6pm' ? 'Daily at 6 PM' : 
-               emailSchedule === 'weekly' ? 'Weekly' : emailSchedule,
-      format: emailFormat === 'html' ? 'HTML' : 
-             emailFormat === 'plain' ? 'Plain Text' : 
-             emailFormat === 'pdf' ? 'PDF Attachment' : emailFormat,
+      schedule: scheduleDisplay,
+      format: formatDisplay,
     };
 
     if (editingNodeId) {
-      // Update existing node
+      // Update existing node AND sync schedule/format to all other email nodes
       setNodes((nds) => nds.map(node => {
         if (node.id === editingNodeId) {
+          // Update the edited node with all metadata
           return {
             ...node,
             data: {
               ...node.data,
               metadata,
+            },
+          };
+        }
+        // Sync schedule and format to all other email nodes (keep their recipients)
+        if (node.data.type === 'daily-email') {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              metadata: {
+                ...node.data.metadata,
+                schedule: scheduleDisplay,
+                format: formatDisplay,
+              },
             },
           };
         }
@@ -615,10 +714,11 @@ function Workflow() {
     <div className="h-screen flex flex-col bg-slate-50">{/* Header */}
       <header className="border-b border-gray-200 bg-white z-50 px-6 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-sm">J</span>
-            </div>
+          <Link to="/workflows" className="flex items-center gap-2">
+            <img src="/logo.svg" alt="JobFlow" className="w-8 h-8 shadow-md shadow-purple-200 rounded-lg" />
+            <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-bold rounded shadow-sm">
+              BETA
+            </span>
           </Link>
           
           <div className="flex items-center gap-2">
@@ -645,7 +745,7 @@ function Workflow() {
                 onClick={() => setIsEditingTitle(true)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                ✏️
+                <Pencil size={16} />
               </button>
             )}
           </div>
@@ -661,10 +761,14 @@ function Workflow() {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Anonymous Feedback Dialog */}
+          <FeedbackDialog />
+
           <Link to="/workflows">
             <Button variant="outline" className="font-medium border-gray-300 text-gray-700 hover:bg-gray-50">
-              ← Back
+              <ArrowLeft size={16} className="mr-1" />
+              Back
             </Button>
           </Link>
           {!isReadOnly && (
@@ -675,14 +779,16 @@ function Workflow() {
                 disabled={isSaving}
                 className="font-medium border-gray-300 text-gray-700 hover:bg-gray-50"
               >
-                💾 Save
+                <Save size={16} className="mr-1" />
+                Save
               </Button>
               <Button
                 onClick={() => saveWorkflow('published')}
                 disabled={isSaving}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-200"
               >
-                🚀 Publish
+                <Rocket size={16} className="mr-1" />
+                Publish
               </Button>
             </>
           )}
@@ -693,7 +799,7 @@ function Workflow() {
       {isReadOnly && (
         <div className="bg-indigo-50 border-b border-indigo-200 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-indigo-700">
-            <span className="text-lg">🔒</span>
+            <Lock size={18} />
             <span className="font-medium">This workflow is published and cannot be edited</span>
           </div>
           <Button
@@ -702,6 +808,7 @@ function Workflow() {
             variant="outline"
             className="border-indigo-300 text-indigo-700 hover:bg-indigo-100"
           >
+            <Pencil size={14} className="mr-1" />
             Enable Editing
           </Button>
         </div>
@@ -719,7 +826,8 @@ function Workflow() {
               Click the button below to add a Job Trigger node to your workflow.
             </p>
             <Button onClick={addJobTriggerNode} className="w-full h-11 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-medium shadow-lg hover:shadow-xl transition-all">
-              🚀 Add Job Trigger
+              <Zap size={18} className="mr-2" />
+              Add Job Trigger
             </Button>
           </div>
         </SheetContent>
@@ -737,9 +845,9 @@ function Workflow() {
                 setShowNodeSelection(false);
                 setShowNormalise(true);
               }}
-              className="w-full h-12 bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
+              className="w-full h-14 bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
             >
-              <span className="mr-3 text-xl">🔄</span>
+              <RefreshCw size={20} className="mr-4" />
               <div className="text-left">
                 <div className="font-semibold">Normalize Data</div>
                 <div className="text-xs opacity-90">Clean and standardize job listings</div>
@@ -751,9 +859,9 @@ function Workflow() {
                 setShowNodeSelection(false);
                 setShowFilter(true);
               }}
-              className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
+              className="w-full h-14 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
             >
-              <span className="mr-3 text-xl">🔍</span>
+              <Filter size={20} className="mr-4" />
               <div className="text-left">
                 <div className="font-semibold">Filter Data</div>
                 <div className="text-xs opacity-90">Filter jobs by criteria</div>
@@ -765,9 +873,9 @@ function Workflow() {
                 setShowNodeSelection(false);
                 setShowDailyEmail(true);
               }}
-              className="w-full h-12 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
+              className="w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
             >
-              <span className="mr-3 text-xl">📧</span>
+              <Mail size={20} className="mr-4" />
               <div className="text-left">
                 <div className="font-semibold">Daily Email</div>
                 <div className="text-xs opacity-90">Send automated email reports</div>
@@ -1060,9 +1168,9 @@ function Workflow() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="daily-9am">📅 Daily at 9 AM</SelectItem>
-                    <SelectItem value="daily-6pm">🌆 Daily at 6 PM</SelectItem>
-                    <SelectItem value="weekly">📆 Weekly (Monday 9 AM)</SelectItem>
+                    <SelectItem value="daily-9am">Daily at 9 AM</SelectItem>
+                    <SelectItem value="daily-6pm">Daily at 6 PM</SelectItem>
+                    <SelectItem value="weekly">Weekly (Monday 9 AM)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1074,9 +1182,9 @@ function Workflow() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="html">🎨 HTML Email</SelectItem>
-                    <SelectItem value="plain">📝 Plain Text</SelectItem>
-                    <SelectItem value="pdf">📎 PDF Attachment</SelectItem>
+                    <SelectItem value="html">HTML Email</SelectItem>
+                    <SelectItem value="plain">Plain Text</SelectItem>
+                    <SelectItem value="pdf">PDF Attachment</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1093,33 +1201,105 @@ function Workflow() {
         </SheetContent>
       </Sheet>
 
-      <div style={{ width: '100%', height: '100%' }} className="bg-slate-50">
+      <div style={{ width: '100%', height: '100%' }} className="bg-slate-50 relative">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
           </div>
         ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onConnectStart={onConnectStart}
-            onNodeClick={onNodeClick}
-            nodeTypes={nodeTypes}
-            fitView
-            style={{ background: '#f8fafc' }}
-          >
-            <Background color="#e2e8f0" gap={20} />
-            <Controls className="!bg-white !border-gray-200 !rounded-lg !shadow-md [&>button]:!bg-white [&>button]:!border-gray-200 [&>button]:!text-gray-600 [&>button:hover]:!bg-gray-50" />
-            <MiniMap 
-              nodeColor="#6366f1"
-              maskColor="rgba(255, 255, 255, 0.8)"
-              style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
-            />
-          </ReactFlow>
+          <>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onConnectStart={onConnectStart}
+              onNodeClick={onNodeClick}
+              onNodeContextMenu={onNodeContextMenu}
+              onPaneClick={onPaneClick}
+              nodeTypes={nodeTypes}
+              fitView
+              style={{ background: '#f8fafc' }}
+            >
+              <Background color="#e2e8f0" gap={20} />
+              <Controls className="!bg-white !border-gray-200 !rounded-lg !shadow-md [&>button]:!bg-white [&>button]:!border-gray-200 [&>button]:!text-gray-600 [&>button:hover]:!bg-gray-50" />
+              <MiniMap 
+                nodeColor="#6366f1"
+                maskColor="rgba(255, 255, 255, 0.8)"
+                style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+              />
+            </ReactFlow>
+            
+            {/* Empty State - Show button to add trigger when no nodes */}
+            {nodes.length === 0 && !isReadOnly && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-xl text-center pointer-events-auto">
+                  <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Zap className="w-8 h-8 text-indigo-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Start Building Your Workflow</h3>
+                  <p className="text-gray-500 mb-6 max-w-xs">
+                    Add a trigger node to start creating your job automation workflow
+                  </p>
+                  <Button 
+                    onClick={() => setShowInitialPopover(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-indigo-200"
+                  >
+                    <Plus size={18} className="mr-1" />
+                    Add Trigger Node
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
+
+        {/* Context Menu */}
+        {contextMenu && !isReadOnly && (
+          <div
+            className="fixed bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              onClick={() => handleDeleteRequest(contextMenu.nodeId)}
+              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer"
+            >
+              <Trash2 size={16} />
+              Delete Node
+            </button>
+          </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialog?.open} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                Delete Node{deleteDialog && deleteDialog.nodeCount > 1 ? 's' : ''}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteDialog?.nodeId === 'job-trigger' ? (
+                  <>This will delete the <strong>entire workflow</strong> including all {deleteDialog?.nodeCount} nodes. This action cannot be undone.</>
+                ) : deleteDialog && deleteDialog.nodeCount > 1 ? (
+                  <>This will delete <strong>{deleteDialog.nodeCount} nodes</strong> (including all connected downstream nodes). This action cannot be undone.</>
+                ) : (
+                  <>Are you sure you want to delete this node? This action cannot be undone.</>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
       </div>
     </div>

@@ -40,6 +40,8 @@ class TriggerNodeHandler implements NodeHandler {
 }
 
 class JobSourceNodeHandler implements NodeHandler {
+  private readonly MAX_JOBS_PER_SOURCE = 10;
+
   async execute(node: WorkflowNode, context: ExecutionContext): Promise<void> {
     const metadata = node.data.metadata || {};
     const source = node.data.jobType as JobSource;
@@ -56,15 +58,16 @@ class JobSourceNodeHandler implements NodeHandler {
     const result = await scraperService.scrapeSource(source, {
       keywords,
       location,
-      maxResults: 50,
+      maxResults: this.MAX_JOBS_PER_SOURCE,
     });
 
-    context.jobs.push(...result.jobs);
+    const limitedJobs = result.jobs.slice(0, this.MAX_JOBS_PER_SOURCE);
+    context.jobs.push(...limitedJobs);
 
     logger.info('Jobs scraped', {
       source,
-      count: result.jobs.length,
-      errors: result.errors.length,
+      count: limitedJobs.length,
+      maxLimit: this.MAX_JOBS_PER_SOURCE,
     });
   }
 }
@@ -311,6 +314,19 @@ export class ExecutorService {
     const workflow = await Workflow.findOne({ workflowId });
     if (!workflow) {
       throw new Error(`Workflow not found: ${workflowId}`);
+    }
+
+    if (!workflow.isActive) {
+      throw new Error('This workflow is not active. Please activate it first before running.');
+    }
+
+    // Check if workflow has expired
+    if (workflow.deactivatesAt && new Date(workflow.deactivatesAt) < new Date()) {
+      workflow.isActive = false;
+      workflow.activatedAt = undefined;
+      workflow.deactivatesAt = undefined;
+      await workflow.save();
+      throw new Error('This workflow has expired. Please reactivate it to run.');
     }
 
     const executionId = `exec_${randomUUID().substring(0, 8)}`;

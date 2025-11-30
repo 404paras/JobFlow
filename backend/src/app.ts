@@ -22,7 +22,28 @@ export function createApp(): Application {
   }));
 
   app.use(cors({
-    origin: config.frontend.url,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        config.frontend.url,
+        'http://localhost:5173',
+        'http://localhost:3000',
+      ].filter(Boolean);
+      
+      // Check if origin is allowed
+      if (allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/\/$/, '')))) {
+        return callback(null, true);
+      }
+      
+      // Also allow any Vercel preview deployments
+      if (origin.includes('.vercel.app')) {
+        return callback(null, true);
+      }
+      
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],

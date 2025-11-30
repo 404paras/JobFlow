@@ -51,7 +51,7 @@ export const config: Config = {
   port: parseInt(process.env.PORT || '5000', 10),
   
   mongodb: {
-    uri: process.env.MONGODB_URI || 'mongodb+srv://parasgarg404:u8f9yn5zQJJhQG20@cluster1.xqbxt7p.mongodb.net/N8NAutomation',
+    uri: process.env.MONGODB_URI || '',
   },
   
   frontend: {

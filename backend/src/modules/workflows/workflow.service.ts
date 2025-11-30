@@ -197,6 +197,7 @@ export class WorkflowService {
   async findActiveEmailWorkflows(): Promise<IWorkflowDocument[]> {
     return Workflow.find({
       status: 'published',
+      isActive: true,
       'emailConfig.isActive': true,
     });
   }
@@ -209,6 +210,87 @@ export class WorkflowService {
         $inc: { executionCount: 1 },
       }
     );
+  }
+
+  async activate(workflowId: string, userId: string): Promise<IWorkflowDocument> {
+    const workflow = await Workflow.findOne({ workflowId });
+    if (!workflow) {
+      throw new NotFoundError('Workflow');
+    }
+
+    if (workflow.status !== 'published') {
+      throw new ConflictError('Only published workflows can be activated');
+    }
+
+    // Check if user already has an active workflow
+    const existingActive = await Workflow.findOne({ 
+      userId, 
+      isActive: true,
+      workflowId: { $ne: workflowId }
+    });
+
+    if (existingActive) {
+      // Deactivate the existing active workflow
+      existingActive.isActive = false;
+      existingActive.activatedAt = undefined;
+      existingActive.deactivatesAt = undefined;
+      await existingActive.save();
+      logger.info('Previous workflow deactivated', { workflowId: existingActive.workflowId });
+    }
+
+    // Activate the new workflow for 2 days
+    const now = new Date();
+    const deactivatesAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days from now
+
+    workflow.isActive = true;
+    workflow.activatedAt = now;
+    workflow.deactivatesAt = deactivatesAt;
+
+    await workflow.save();
+    logger.info('Workflow activated', { 
+      workflowId, 
+      activatedAt: now, 
+      deactivatesAt 
+    });
+
+    return workflow;
+  }
+
+  async deactivate(workflowId: string): Promise<IWorkflowDocument> {
+    const workflow = await Workflow.findOne({ workflowId });
+    if (!workflow) {
+      throw new NotFoundError('Workflow');
+    }
+
+    workflow.isActive = false;
+    workflow.activatedAt = undefined;
+    workflow.deactivatesAt = undefined;
+
+    await workflow.save();
+    logger.info('Workflow deactivated', { workflowId });
+
+    return workflow;
+  }
+
+  async getActiveWorkflow(userId: string): Promise<IWorkflowDocument | null> {
+    return Workflow.findOne({ userId, isActive: true });
+  }
+
+  async deactivateExpiredWorkflows(): Promise<number> {
+    const now = new Date();
+    const result = await Workflow.updateMany(
+      { isActive: true, deactivatesAt: { $lte: now } },
+      { 
+        $set: { isActive: false },
+        $unset: { activatedAt: 1, deactivatesAt: 1 }
+      }
+    );
+    
+    if (result.modifiedCount > 0) {
+      logger.info('Deactivated expired workflows', { count: result.modifiedCount });
+    }
+    
+    return result.modifiedCount;
   }
 }
 

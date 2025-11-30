@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { workflowController } from './workflow.controller';
 import { validate } from '../../shared/middleware/validate';
+import { authenticate } from '../users/auth.middleware';
 import {
   createWorkflowSchema,
   updateWorkflowSchema,
@@ -10,83 +11,74 @@ import {
 
 const router = Router();
 
-/**
- * @route   GET /api/workflows
- * @desc    Get all workflows with pagination
- * @access  Public (or Private with auth)
- */
 router.get(
   '/',
+  authenticate,
   validate(workflowQuerySchema, 'query'),
   workflowController.findAll
 );
 
-/**
- * @route   GET /api/workflows/:id
- * @desc    Get a single workflow by ID
- * @access  Public (or Private with auth)
- */
+router.get(
+  '/active',
+  authenticate,
+  workflowController.getActive
+);
+
 router.get(
   '/:id',
+  authenticate,
   validate(workflowIdParamSchema, 'params'),
   workflowController.findById
 );
 
-/**
- * @route   POST /api/workflows
- * @desc    Create a new workflow
- * @access  Public (or Private with auth)
- */
 router.post(
   '/',
+  authenticate,
   validate(createWorkflowSchema, 'body'),
   workflowController.create
 );
 
-/**
- * @route   PUT /api/workflows/:id
- * @desc    Update a workflow
- * @access  Public (or Private with auth)
- */
 router.put(
   '/:id',
+  authenticate,
   validate(workflowIdParamSchema, 'params'),
   validate(updateWorkflowSchema, 'body'),
   workflowController.update
 );
 
-/**
- * @route   DELETE /api/workflows/:id
- * @desc    Delete a workflow
- * @access  Public (or Private with auth)
- */
 router.delete(
   '/:id',
+  authenticate,
   validate(workflowIdParamSchema, 'params'),
   workflowController.delete
 );
 
-/**
- * @route   POST /api/workflows/:id/publish
- * @desc    Publish a workflow
- * @access  Public (or Private with auth)
- */
 router.post(
   '/:id/publish',
+  authenticate,
   validate(workflowIdParamSchema, 'params'),
   workflowController.publish
 );
 
-/**
- * @route   POST /api/workflows/:id/pause
- * @desc    Pause a workflow
- * @access  Public (or Private with auth)
- */
 router.post(
   '/:id/pause',
+  authenticate,
   validate(workflowIdParamSchema, 'params'),
   workflowController.pause
 );
 
-export default router;
+router.post(
+  '/:id/activate',
+  authenticate,
+  validate(workflowIdParamSchema, 'params'),
+  workflowController.activate
+);
 
+router.post(
+  '/:id/deactivate',
+  authenticate,
+  validate(workflowIdParamSchema, 'params'),
+  workflowController.deactivate
+);
+
+export default router;

@@ -13,6 +13,18 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-6+-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org/)
 
+**Created by [Paras Garg](https://github.com/404paras)**
+
+</div>
+
+---
+
+## 🏗️ Architecture
+
+<div align="center">
+
+![JobFlow Architecture](ArchitectureDiagram.png)
+
 </div>
 
 ---
@@ -207,27 +219,31 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+
+
+---
+
+## 👨‍💻 Author
+
+**Paras Garg**
+
+- GitHub: [@404paras](https://github.com/404paras)
+
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [React Flow](https://reactflow.dev/) for the amazing workflow UI
-- [shadcn/ui](https://ui.shadcn.com/) for beautiful components
-- [Puppeteer](https://pptr.dev/) for powerful web scraping
+This project is licensed under the MIT License.
 
 ---
 
 <div align="center">
 
-**Built with ❤️ for Job Seekers**
+**Built with ❤️ by Paras Garg**
 
 *Stop refreshing job boards. Let JobFlow do it for you.*
+
+© 2025 JobFlow
 
 </div>
 

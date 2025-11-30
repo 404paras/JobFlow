@@ -2,12 +2,13 @@ import { Router, Request, Response } from 'express';
 import { executorService } from './executor.service';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { ApiResponse } from '../../shared/types';
-import { AuthRequest } from '../users/auth.middleware';
+import { authenticate, AuthRequest } from '../users/auth.middleware';
 
 const router = Router();
 
 router.post(
   '/:workflowId',
+  authenticate,
   asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { workflowId } = req.params;
     const userId = req.userId;
@@ -26,6 +27,7 @@ router.post(
 
 router.post(
   '/:workflowId/stop',
+  authenticate,
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { workflowId } = req.params;
 
@@ -50,6 +52,7 @@ router.post(
 
 router.get(
   '/running',
+  authenticate,
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const runningWorkflows = executorService.getRunningWorkflows();
 
@@ -69,6 +72,7 @@ router.get(
 
 router.get(
   '/:workflowId/status',
+  authenticate,
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { workflowId } = req.params;
 
@@ -91,6 +95,7 @@ router.get(
 
 router.get(
   '/:workflowId/history',
+  authenticate,
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { workflowId } = req.params;
     const limit = parseInt(req.query.limit as string, 10) || 10;
@@ -108,6 +113,7 @@ router.get(
 
 router.get(
   '/execution/:executionId',
+  authenticate,
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { executionId } = req.params;
 

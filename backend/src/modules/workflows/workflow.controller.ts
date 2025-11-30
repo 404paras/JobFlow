@@ -126,6 +126,60 @@ export class WorkflowController {
 
     res.json(response);
   });
+
+  /**
+   * Activate a workflow (only one can be active at a time)
+   * POST /api/workflows/:id/activate
+   */
+  activate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const userId = (req as any).userId;
+
+    const workflow = await workflowService.activate(id, userId);
+
+    const response: ApiResponse = {
+      success: true,
+      message: 'Workflow activated successfully. It will auto-deactivate after 2 days.',
+      data: workflow,
+    };
+
+    res.json(response);
+  });
+
+  /**
+   * Deactivate a workflow
+   * POST /api/workflows/:id/deactivate
+   */
+  deactivate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    const workflow = await workflowService.deactivate(id);
+
+    const response: ApiResponse = {
+      success: true,
+      message: 'Workflow deactivated successfully',
+      data: workflow,
+    };
+
+    res.json(response);
+  });
+
+  /**
+   * Get the currently active workflow for the user
+   * GET /api/workflows/active
+   */
+  getActive = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as any).userId;
+
+    const workflow = await workflowService.getActiveWorkflow(userId);
+
+    const response: ApiResponse = {
+      success: true,
+      data: workflow,
+    };
+
+    res.json(response);
+  });
 }
 
 export const workflowController = new WorkflowController();

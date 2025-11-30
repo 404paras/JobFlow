@@ -149,6 +149,25 @@ class ApiClient {
     return response.data!;
   }
 
+  async activateWorkflow(id: string): Promise<Workflow> {
+    const response = await this.request<Workflow>(`/workflows/${id}/activate`, {
+      method: 'POST',
+    });
+    return response.data!;
+  }
+
+  async deactivateWorkflow(id: string): Promise<Workflow> {
+    const response = await this.request<Workflow>(`/workflows/${id}/deactivate`, {
+      method: 'POST',
+    });
+    return response.data!;
+  }
+
+  async getActiveWorkflow(): Promise<Workflow | null> {
+    const response = await this.request<Workflow | null>('/workflows/active');
+    return response.data ?? null;
+  }
+
   async executeWorkflow(workflowId: string): Promise<Execution> {
     const response = await this.request<Execution>(`/execute/${workflowId}`, {
       method: 'POST',

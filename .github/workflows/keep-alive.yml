@@ -1,0 +1,52 @@
+name: Keep Backend Alive
+
+on:
+  schedule:
+    # Wake up 10 minutes before scheduled job times (IST → UTC conversion)
+    # IST is UTC+5:30, so:
+    # - 9 AM IST = 3:30 AM UTC → wake at 3:20 AM UTC
+    # - 6 PM IST = 12:30 PM UTC → wake at 12:20 PM UTC
+    
+    - cron: '20 3 * * *'    # 3:20 AM UTC (8:50 AM IST) - before 9 AM IST job
+    - cron: '20 12 * * *'   # 12:20 PM UTC (5:50 PM IST) - before 6 PM IST job
+    - cron: '20 3 * * 1'    # Monday 3:20 AM UTC - before weekly 9 AM IST job
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  wake-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake Up Backend
+        run: |
+          echo "⏰ Waking up backend before scheduled job..."
+          echo "🕐 Current UTC time: $(date -u)"
+          
+          # First ping - might take longer due to cold start
+          echo "🏓 Sending wake-up ping..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 ${{ secrets.BACKEND_URL }}/health || echo "000")
+          
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✅ Backend is awake! (HTTP $RESPONSE)"
+          else
+            echo "⏳ Cold start detected (HTTP $RESPONSE), waiting 30s..."
+            sleep 30
+            
+            # Retry ping
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 ${{ secrets.BACKEND_URL }}/health || echo "000")
+            
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ Backend is now awake! (HTTP $RESPONSE)"
+            else
+              echo "❌ Backend still not responding (HTTP $RESPONSE)"
+              exit 1
+            fi
+          fi
+
+      - name: Verify API is Ready
+        run: |
+          echo "🔍 Verifying API health..."
+          curl -s ${{ secrets.BACKEND_URL }}/api/health
+          echo ""
+          echo "✅ Backend is ready for scheduled jobs!"

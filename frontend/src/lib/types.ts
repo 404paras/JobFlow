@@ -32,6 +32,9 @@ export type Workflow = {
     sentCount: number;
     isActive: boolean;
   };
+  isActive: boolean;
+  activatedAt?: string;
+  deactivatesAt?: string;
   lastExecutedAt?: string;
   executionCount: number;
   createdAt: string;

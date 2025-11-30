@@ -38,9 +38,7 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-3 group">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 group-hover:scale-105 transition-transform">
-              <span className="text-white font-bold text-xl">J</span>
-            </div>
+            <img src="/logo.svg" alt="JobFlow" className="w-12 h-12 shadow-lg shadow-purple-200 rounded-xl group-hover:scale-105 transition-transform" />
             <span className="text-2xl font-bold text-gray-900">
               JobFlow
             </span>
