@@ -568,11 +568,10 @@ function Workflow() {
   const addOrUpdateJobSourceNode = () => {
     if (!selectedJobSource || !selectedJobType || !selectedLocation) return;
 
-    const jobTypeMap: { [key: string]: 'linkedin' | 'remoteok' | 'naukri' | 'google' | 'wellfound' } = {
+    const jobTypeMap: { [key: string]: 'linkedin' | 'remoteok' | 'naukri' | 'wellfound' } = {
       linkedin: 'linkedin',
       remoteok: 'remoteok',
       naukri: 'naukri',
-      google: 'google',
       wellfound: 'wellfound',
     };
 
@@ -946,7 +945,6 @@ function Workflow() {
                   <SelectItem value="LinkedIn">LinkedIn Jobs</SelectItem>
                   <SelectItem value="RemoteOK">RemoteOK (Remote)</SelectItem>
                   <SelectItem value="Naukri">Naukri Jobs</SelectItem>
-                  <SelectItem value="Google">Google Jobs</SelectItem>
                   <SelectItem value="Wellfound">Wellfound (Startups)</SelectItem>
                 </SelectContent>
               </Select>
@@ -1164,7 +1162,6 @@ function Workflow() {
                     <SelectItem value="linkedin">LinkedIn</SelectItem>
                     <SelectItem value="remoteok">RemoteOK</SelectItem>
                     <SelectItem value="naukri">Naukri</SelectItem>
-                    <SelectItem value="google">Google Jobs</SelectItem>
                     <SelectItem value="wellfound">Wellfound</SelectItem>
                   </SelectContent>
                 </Select>

@@ -27,7 +27,6 @@ const SOURCE_COLORS: Record<JobSource, string> = {
   linkedin: 'bg-blue-100 text-blue-700',
   naukri: 'bg-purple-100 text-purple-700',
   remoteok: 'bg-green-100 text-green-700',
-  google: 'bg-red-100 text-red-700',
   wellfound: 'bg-orange-100 text-orange-700',
 };
 
@@ -253,7 +252,6 @@ export default function MyJobs() {
               <option value="linkedin">LinkedIn</option>
               <option value="naukri">Naukri</option>
               <option value="remoteok">RemoteOK</option>
-              <option value="google">Google</option>
               <option value="wellfound">Wellfound</option>
             </select>
 

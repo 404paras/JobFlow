@@ -3,7 +3,6 @@ import { IScraper, ScraperConfig, ScraperResult } from './scraper.types';
 import { linkedInScraper } from './linkedin.scraper';
 import { remoteOKScraper } from './remoteok.scraper';
 import { naukriScraper } from './naukri.scraper';
-import { googleJobsScraper } from './google.scraper';
 import { wellfoundScraper } from './wellfound.scraper';
 import { sleep } from './scraper.utils';
 import { logger } from '../../shared/utils/logger';
@@ -17,7 +16,6 @@ export class ScraperService {
       ['linkedin', linkedInScraper],
       ['remoteok', remoteOKScraper],
       ['naukri', naukriScraper],
-      ['google', googleJobsScraper],
       ['wellfound', wellfoundScraper],
     ]);
   }
@@ -87,7 +85,7 @@ export class ScraperService {
     totalDuration: number;
   }> {
     const startTime = Date.now();
-    const sources: JobSource[] = ['linkedin', 'remoteok', 'naukri', 'google', 'wellfound'];
+    const sources: JobSource[] = ['linkedin', 'remoteok', 'naukri', 'wellfound'];
     
     const results = await this.scrapeMultiple(sources, scraperConfig);
     

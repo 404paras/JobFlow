@@ -1,6 +1,6 @@
 export const FEATURES = {
-  RESUME_UPLOAD: false,
-  GOOGLE_JOBS: true,
+  RESUME_UPLOAD: true,
+  GOOGLE_JOBS: false,
   WELLFOUND: true,
   REMOTEOK: true,
   DATE_FILTER: true,

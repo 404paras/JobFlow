@@ -295,9 +295,6 @@ export default function WorkflowList() {
 
             {isAuthenticated && (
               <>
-                <span className="text-gray-600 text-sm hidden md:block">
-                  {user?.name}
-                </span>
                 {user?.isAdmin && (
                   <Link to="/admin">
                     <Button 
