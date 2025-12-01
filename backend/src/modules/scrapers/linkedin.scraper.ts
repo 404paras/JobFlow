@@ -14,7 +14,7 @@ export class LinkedInScraper implements IScraper {
     const jobs: ScrapedJob[] = [];
     const errors: string[] = [];
 
-    const { keywords, location, maxResults = 25 } = scraperConfig;
+    const { keywords, location, maxResults = 100 } = scraperConfig;
     const timeout = scraperConfig.timeout || config.scraper.timeout;
 
     const url = `https://www.linkedin.com/jobs/search?keywords=${encodeURIComponent(keywords)}&location=${encodeURIComponent(location)}&start=0`;

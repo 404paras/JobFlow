@@ -32,7 +32,7 @@ export class JobicyScraper implements IScraper {
     const jobs: ScrapedJob[] = [];
     const errors: string[] = [];
 
-    const { keywords, location, maxResults = 25 } = scraperConfig;
+    const { keywords, location, maxResults = 100 } = scraperConfig;
     const timeout = scraperConfig.timeout || config.scraper.timeout;
 
     const url = `https://jobicy.com/api/v2/remote-jobs?count=${Math.min(maxResults * 2, 50)}&tag=${encodeURIComponent(keywords)}`;

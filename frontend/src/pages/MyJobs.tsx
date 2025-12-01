@@ -55,11 +55,20 @@ export default function MyJobs() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filters, setFilters] = useState<JobFilters>({
-    sortBy: 'createdAt',
+    sortBy: 'postedAt',
     sortOrder: 'desc',
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  // Check if any filters are active
+  const hasActiveFilters = Boolean(
+    searchQuery || 
+    filters.source || 
+    filters.applicationStatus || 
+    filters.isUnread || 
+    filters.isBookmarked
+  );
 
   const loadJobs = useCallback(async () => {
     setIsLoading(true);
@@ -68,7 +77,7 @@ export default function MyJobs() {
       if (searchQuery) activeFilters.search = searchQuery;
 
       const [jobsResponse, countsResponse] = await Promise.all([
-        api.getJobs(page, 20, activeFilters),
+        api.getJobs(page, 50, activeFilters),
         api.getJobCounts(),
       ]);
 
@@ -89,8 +98,9 @@ export default function MyJobs() {
   const handleMarkAllRead = async () => {
     try {
       await api.markAllJobsAsRead();
+      setJobs(prev => prev.map(j => ({ ...j, isUnread: false })));
+      setCounts(prev => ({ ...prev, new: 0 }));
       toast.success('All jobs marked as read');
-      loadJobs();
     } catch (error: any) {
       toast.error('Failed to mark jobs as read');
     }
@@ -132,10 +142,16 @@ export default function MyJobs() {
   const handleDeleteJob = async (job: Job) => {
     try {
       await api.deleteJob(job._id);
-      setJobs(jobs.filter(j => j._id !== job._id));
+      setJobs(prev => prev.filter(j => j._id !== job._id));
       if (selectedJob?._id === job._id) setSelectedJob(null);
+      setCounts(prev => ({
+        ...prev,
+        total: Math.max(0, prev.total - 1),
+        new: job.isUnread ? Math.max(0, prev.new - 1) : prev.new,
+        bookmarked: job.isBookmarked ? Math.max(0, prev.bookmarked - 1) : prev.bookmarked,
+        applied: job.applicationStatus !== 'none' ? Math.max(0, prev.applied - 1) : prev.applied,
+      }));
       toast.success('Job deleted');
-      loadJobs();
     } catch (error: any) {
       toast.error('Failed to delete job');
     }
@@ -298,9 +314,9 @@ export default function MyJobs() {
               }}
               className="px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="createdAt-desc">Newest First</option>
-              <option value="createdAt-asc">Oldest First</option>
-              <option value="matchScore-desc">Best Match</option>
+              <option value="postedAt-desc">Latest First</option>
+              <option value="postedAt-asc">Oldest First</option>
+              <option value="createdAt-desc">Recently Added</option>
               <option value="company-asc">Company A-Z</option>
             </select>
           </div>
@@ -313,15 +329,40 @@ export default function MyJobs() {
         ) : jobs.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl border">
             <Briefcase size={48} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
-            <p className="text-gray-500 mb-4">
-              {searchQuery || Object.keys(filters).length > 2
-                ? 'Try adjusting your filters'
-                : 'Run a workflow to start collecting jobs'}
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {hasActiveFilters ? 'No matching jobs' : 'No jobs yet'}
+            </h3>
+            <p className="text-gray-500 mb-4 max-w-md mx-auto">
+              {hasActiveFilters ? (
+                <>
+                  No jobs match your current filters.
+                  {searchQuery && <span className="block mt-1">Search: "{searchQuery}"</span>}
+                  {filters.source && <span className="block mt-1">Source: {filters.source}</span>}
+                  {filters.applicationStatus && <span className="block mt-1">Status: {filters.applicationStatus}</span>}
+                  {filters.isUnread && <span className="block mt-1">Showing: New only</span>}
+                  {filters.isBookmarked && <span className="block mt-1">Showing: Bookmarked only</span>}
+                </>
+              ) : counts.total === 0 ? (
+                'Create and run a workflow to start collecting jobs from various sources.'
+              ) : (
+                'All jobs have been filtered out. Try adjusting your filters.'
+              )}
             </p>
+            {hasActiveFilters ? (
+              <Button 
+                onClick={() => {
+                  setFilters({ sortBy: 'postedAt', sortOrder: 'desc' });
+                  setSearchQuery('');
+                }}
+                variant="outline"
+                className="mr-2 rounded-xl"
+              >
+                Clear Filters
+              </Button>
+            ) : null}
             <Link to="/workflows">
               <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
-                Go to Workflows
+                {counts.total === 0 ? 'Create Workflow' : 'Go to Workflows'}
               </Button>
             </Link>
           </div>
@@ -336,7 +377,11 @@ export default function MyJobs() {
                   }`}
                   onClick={() => {
                     setSelectedJob(job);
-                    if (job.isUnread) api.markJobAsRead(job._id);
+                    if (job.isUnread) {
+                      api.markJobAsRead(job._id);
+                      setJobs(prev => prev.map(j => j._id === job._id ? { ...j, isUnread: false } : j));
+                      setCounts(prev => ({ ...prev, new: Math.max(0, prev.new - 1) }));
+                    }
                   }}
                 >
                   <div className="flex items-start justify-between gap-4">

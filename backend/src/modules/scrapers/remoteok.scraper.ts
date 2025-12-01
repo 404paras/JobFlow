@@ -28,7 +28,7 @@ export class RemoteOKScraper implements IScraper {
     const jobs: ScrapedJob[] = [];
     const errors: string[] = [];
 
-    const { keywords, maxResults = 25 } = scraperConfig;
+    const { keywords, maxResults = 100 } = scraperConfig;
     const timeout = scraperConfig.timeout || config.scraper.timeout;
 
     // RemoteOK has a public JSON API

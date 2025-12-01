@@ -39,7 +39,7 @@ class TriggerNodeHandler implements NodeHandler {
 }
 
 class JobSourceNodeHandler implements NodeHandler {
-  private readonly MAX_JOBS_PER_SOURCE = 10;
+  private readonly MAX_JOBS_PER_SOURCE = 100;
 
   async execute(node: WorkflowNode, context: ExecutionContext): Promise<void> {
     const metadata = node.data.metadata || {};
@@ -266,14 +266,20 @@ class FilterNodeHandler implements NodeHandler {
 class JobsOutputNodeHandler implements NodeHandler {
   async execute(node: WorkflowNode, context: ExecutionContext): Promise<void> {
     const metadata = node.data.metadata || {};
-    const maxJobs = metadata.maxJobs || 100;
 
     if (context.jobs.length === 0) {
       logger.info('No jobs to save', { nodeId: node.id });
       return;
     }
 
-    const jobsToSave = context.jobs.slice(0, maxJobs);
+    // Sort jobs by postedAt (latest first)
+    const sortedJobs = [...context.jobs].sort((a, b) => {
+      const dateA = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+      const dateB = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    const jobsToSave = sortedJobs;
     
     const existingUids = await JobListing.find({
       userId: context.userId,
