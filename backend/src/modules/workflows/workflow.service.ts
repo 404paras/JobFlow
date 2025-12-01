@@ -138,9 +138,17 @@ export class WorkflowService {
       Workflow.countDocuments(query),
     ]);
 
+    const { JobListing } = await import('../jobs/job.model');
+    const workflowsWithJobCounts = await Promise.all(
+      workflows.map(async (workflow) => {
+        const jobCount = await JobListing.countDocuments({ workflowId: workflow.workflowId });
+        return { ...workflow, jobCount };
+      })
+    );
+
     return {
       success: true,
-      data: workflows as IWorkflowDocument[],
+      data: workflowsWithJobCounts as any,
       pagination: {
         page,
         limit,
@@ -233,10 +241,19 @@ export class WorkflowService {
     }
 
     const { Execution } = await import('../executor/execution.model');
-    await Execution.deleteMany({ workflowId: id });
+    const { JobListing } = await import('../jobs/job.model');
+    
+    const [executionResult, jobsResult] = await Promise.all([
+      Execution.deleteMany({ workflowId: id }),
+      JobListing.deleteMany({ workflowId: id }),
+    ]);
 
     await workflow.deleteOne();
-    logger.info('Workflow deleted', { workflowId: id });
+    logger.info('Workflow deleted with related data', { 
+      workflowId: id,
+      executionsDeleted: executionResult.deletedCount,
+      jobsDeleted: jobsResult.deletedCount,
+    });
   }
 
   async publish(id: string): Promise<IWorkflowDocument> {

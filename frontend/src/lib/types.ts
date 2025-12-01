@@ -104,6 +104,7 @@ export type Workflow = {
   deactivatesAt?: string;
   lastExecutedAt?: string;
   executionCount: number;
+  jobCount?: number;
   createdAt: string;
   updatedAt: string;
 };

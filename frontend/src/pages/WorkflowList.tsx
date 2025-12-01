@@ -468,10 +468,10 @@ export default function WorkflowList() {
                     {workflow.executionCount > 0 && (
                       <div>Executed: {workflow.executionCount} times</div>
                     )}
-                    {workflow.jobsConfig && (
-                      <div className="text-emerald-600 flex items-center gap-1">
+                    {(workflow.jobCount ?? 0) > 0 && (
+                      <div className="text-indigo-600 flex items-center gap-1">
                         <Briefcase size={14} />
-                        Jobs Output Active
+                        {workflow.jobCount} jobs collected
                       </div>
                     )}
                     {isThisActive && workflow.deactivatesAt && (
