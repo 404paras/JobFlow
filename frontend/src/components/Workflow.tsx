@@ -568,10 +568,12 @@ function Workflow() {
   const addOrUpdateJobSourceNode = () => {
     if (!selectedJobSource || !selectedJobType || !selectedLocation) return;
 
-    const jobTypeMap: { [key: string]: 'linkedin' | 'remoteok' | 'naukri' } = {
+    const jobTypeMap: { [key: string]: 'linkedin' | 'remoteok' | 'naukri' | 'arbeitnow' | 'jobicy' } = {
       linkedin: 'linkedin',
       remoteok: 'remoteok',
       naukri: 'naukri',
+      arbeitnow: 'arbeitnow',
+      jobicy: 'jobicy',
     };
 
     const metadata = {
@@ -944,6 +946,8 @@ function Workflow() {
                   <SelectItem value="LinkedIn">LinkedIn Jobs</SelectItem>
                   <SelectItem value="RemoteOK">RemoteOK (Remote)</SelectItem>
                   <SelectItem value="Naukri">Naukri Jobs</SelectItem>
+                  <SelectItem value="Arbeitnow">Arbeitnow (Europe)</SelectItem>
+                  <SelectItem value="Jobicy">Jobicy (Remote)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -993,6 +997,20 @@ function Workflow() {
                 className="w-full h-11 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium shadow-lg hover:shadow-xl transition-all animate-in fade-in-50 duration-200"
               >
                 {editingNodeId ? 'Update Job Source' : 'Add Job Source Node'}
+              </Button>
+            )}
+
+            {editingNodeId && (
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  handleDeleteRequest(editingNodeId);
+                  setShowJobSourcePopover(false);
+                }}
+                className="w-full h-11 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium transition-all"
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete Node
               </Button>
             )}
           </div>
@@ -1078,6 +1096,20 @@ function Workflow() {
             >
               {editingNodeId ? 'Update Normalize Node' : 'Add Normalize Node'}
             </Button>
+
+            {editingNodeId && (
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  handleDeleteRequest(editingNodeId);
+                  setShowNormalise(false);
+                }}
+                className="w-full h-11 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium transition-all"
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete Node
+              </Button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -1161,6 +1193,8 @@ function Workflow() {
                     <SelectItem value="linkedin">LinkedIn</SelectItem>
                     <SelectItem value="remoteok">RemoteOK</SelectItem>
                     <SelectItem value="naukri">Naukri</SelectItem>
+                    <SelectItem value="arbeitnow">Arbeitnow</SelectItem>
+                    <SelectItem value="jobicy">Jobicy</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1172,6 +1206,20 @@ function Workflow() {
             >
               {editingNodeId ? 'Update Filter' : 'Add Filter Node'}
             </Button>
+
+            {editingNodeId && (
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  handleDeleteRequest(editingNodeId);
+                  setShowFilter(false);
+                }}
+                className="w-full h-11 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium transition-all"
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete Node
+              </Button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -1258,6 +1306,20 @@ function Workflow() {
             >
               {editingNodeId ? 'Update Jobs Output' : 'Add Jobs Output'}
             </Button>
+
+            {editingNodeId && (
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  handleDeleteRequest(editingNodeId);
+                  setShowJobsOutput(false);
+                }}
+                className="w-full h-11 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-medium transition-all"
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete Node
+              </Button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -1311,6 +1373,13 @@ function Workflow() {
                     Add Trigger Node
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* Hint for node interaction */}
+            {nodes.length > 0 && !isReadOnly && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-4 py-2 shadow-sm text-xs text-gray-500">
+                💡 Click on a node to edit • Delete option available in settings
               </div>
             )}
           </>

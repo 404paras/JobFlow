@@ -27,6 +27,8 @@ const SOURCE_COLORS: Record<JobSource, string> = {
   linkedin: 'bg-blue-100 text-blue-700',
   naukri: 'bg-purple-100 text-purple-700',
   remoteok: 'bg-green-100 text-green-700',
+  arbeitnow: 'bg-orange-100 text-orange-700',
+  jobicy: 'bg-cyan-100 text-cyan-700',
 };
 
 const STATUS_COLORS: Record<ApplicationStatus, string> = {
@@ -251,6 +253,8 @@ export default function MyJobs() {
               <option value="linkedin">LinkedIn</option>
               <option value="naukri">Naukri</option>
               <option value="remoteok">RemoteOK</option>
+              <option value="arbeitnow">Arbeitnow</option>
+              <option value="jobicy">Jobicy</option>
             </select>
 
             <select

@@ -1,7 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
-import { Linkedin, Globe, Building2 } from 'lucide-react';
+import { Linkedin, Globe, Building2, Briefcase, MapPin } from 'lucide-react';
 
-export type JobSourceType = 'linkedin' | 'remoteok' | 'naukri';
+export type JobSourceType = 'linkedin' | 'remoteok' | 'naukri' | 'arbeitnow' | 'jobicy';
 
 interface JobSourceNodeProps {
   data: {
@@ -21,6 +21,8 @@ export const JobSourceNode = ({ data, selected }: JobSourceNodeProps) => {
     linkedin: { color: 'bg-[#0077b5]', icon: Linkedin },
     remoteok: { color: 'bg-emerald-500', icon: Globe },
     naukri: { color: 'bg-red-500', icon: Building2 },
+    arbeitnow: { color: 'bg-orange-500', icon: Briefcase },
+    jobicy: { color: 'bg-cyan-500', icon: MapPin },
   };
 
   const theme = themes[data.jobType] || themes.remoteok;

@@ -39,7 +39,7 @@ export type AuthResponse = {
 
 export type ApplicationStatus = 'none' | 'applied' | 'interview' | 'offer' | 'rejected';
 
-export type JobSource = 'linkedin' | 'naukri' | 'remoteok';
+export type JobSource = 'linkedin' | 'naukri' | 'remoteok' | 'arbeitnow' | 'jobicy';
 
 export type Job = {
   _id: string;

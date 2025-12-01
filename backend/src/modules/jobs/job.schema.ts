@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const jobSourceEnum = z.enum(['linkedin', 'naukri', 'remoteok']);
+export const jobSourceEnum = z.enum(['linkedin', 'naukri', 'remoteok', 'arbeitnow', 'jobicy']);
 export const applicationStatusEnum = z.enum(['none', 'applied', 'interview', 'offer', 'rejected']);
 
 export const createJobSchema = z.object({
@@ -59,7 +59,7 @@ export const filterCriteriaSchema = z.object({
   company: z.string().optional(),
   location: z.string().optional(),
   minSalary: z.coerce.number().positive().optional(),
-  source: z.enum(['linkedin', 'naukri', 'remoteok', 'any']).optional(),
+  source: z.enum(['linkedin', 'naukri', 'remoteok', 'arbeitnow', 'jobicy', 'any']).optional(),
 });
 
 export const normalizationConfigSchema = z.object({
