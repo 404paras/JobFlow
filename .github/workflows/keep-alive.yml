@@ -2,64 +2,114 @@ name: Keep Backend Alive
 
 on:
   schedule:
-    # Wake up 10 minutes before scheduled job times (IST → UTC conversion)
-    # IST is UTC+5:30, so:
-    # - 9 AM IST = 3:30 AM UTC → wake at 3:20 AM UTC
-    # - 6 PM IST = 12:30 PM UTC → wake at 12:20 PM UTC
-    
-    - cron: '20 3 * * *'    # 3:20 AM UTC (8:50 AM IST) - before 9 AM IST job
-    - cron: '20 12 * * *'   # 12:20 PM UTC (5:50 PM IST) - before 6 PM IST job
-    - cron: '20 3 * * 1'    # Monday 3:20 AM UTC - before weekly 9 AM IST job
+    # ┌─────────────────────────────────────────────────────────────────────────┐
+    # │ IST (UTC+5:30) → UTC Conversion:                                        │
+    # │   9:00 AM IST  = 03:30 UTC  →  wake at 03:20 UTC (10 min before)        │
+    # │   6:00 PM IST  = 12:30 UTC  →  wake at 12:20 UTC (10 min before)        │
+    # │   Monday 9 AM IST = Monday 03:30 UTC                                    │
+    # └─────────────────────────────────────────────────────────────────────────┘
+    - cron: '20 3 * * *'    # Daily 03:20 UTC = 08:50 IST (before 9 AM job)
+    - cron: '20 12 * * *'   # Daily 12:20 UTC = 17:50 IST (before 6 PM job)
+    - cron: '20 3 * * 1'    # Monday 03:20 UTC = Monday 08:50 IST (weekly job)
   
-  # Allow manual trigger for testing
+  # Manual trigger for testing
   workflow_dispatch:
+
+env:
+  # Configurable health endpoint (default: /health)
+  HEALTH_PATH: ${{ secrets.HEALTH_PATH || '/health' }}
 
 jobs:
   wake-backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
     steps:
+      - name: Validate Configuration
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "⏰ UTC Time: $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "📍 Health Path: ${{ env.HEALTH_PATH }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if [ -z "${{ secrets.BACKEND_URL }}" ]; then
+            echo "❌ ERROR: BACKEND_URL secret is not configured!"
+            echo ""
+            echo "To fix this:"
+            echo "1. Go to your GitHub repo → Settings → Secrets → Actions"
+            echo "2. Add secret: BACKEND_URL = https://your-app.onrender.com"
+            exit 1
+          fi
+          
+          echo "✅ Configuration valid"
+
       - name: Wake Up Backend
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
-          echo "⏰ Waking up backend before scheduled job..."
-          echo "🕐 Current UTC time: $(date -u)"
-          echo "🔗 Backend URL: ${BACKEND_URL:-NOT_SET}"
+          ENDPOINT="${BACKEND_URL}${{ env.HEALTH_PATH }}"
+          MAX_ATTEMPTS=3
+          ATTEMPT=0
+          SUCCESS=false
           
-          if [ -z "$BACKEND_URL" ]; then
-            echo "❌ BACKEND_URL secret is not set!"
-            echo "Please add BACKEND_URL secret in GitHub repo settings"
-            exit 1
-          fi
+          echo "🎯 Target: $ENDPOINT"
+          echo ""
           
-          # First ping - might take longer due to cold start (up to 2 minutes for Render)
-          echo "🏓 Sending wake-up ping..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "${BACKEND_URL}/health" || echo "000")
-          echo "📡 Response: HTTP $RESPONSE"
-          
-          if [ "$RESPONSE" = "200" ]; then
-            echo "✅ Backend is awake!"
-          else
-            echo "⏳ Cold start detected, waiting 45s and retrying..."
-            sleep 45
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
             
-            # Retry ping
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "${BACKEND_URL}/health" || echo "000")
-            echo "📡 Retry response: HTTP $RESPONSE"
-            
-            if [ "$RESPONSE" = "200" ]; then
-              echo "✅ Backend is now awake!"
-            else
-              echo "⚠️ Backend not responding (HTTP $RESPONSE), but continuing..."
-              # Don't exit 1 - the scheduled job might still wake it up
+            # Exponential backoff: 0s, 30s, 60s wait before each attempt
+            if [ $ATTEMPT -gt 1 ]; then
+              WAIT_TIME=$((30 * (ATTEMPT - 1)))
+              echo "⏳ Waiting ${WAIT_TIME}s before retry..."
+              sleep $WAIT_TIME
             fi
+            
+            echo "🏓 Attempt $ATTEMPT/$MAX_ATTEMPTS..."
+            
+            # Curl with timeout and retry logic
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --connect-timeout 30 \
+              --max-time 120 \
+              --retry 2 \
+              --retry-delay 5 \
+              "$ENDPOINT" 2>/dev/null || echo "000")
+            
+            echo "   HTTP Status: $HTTP_CODE"
+            
+            # Accept any 2xx response as success
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+              SUCCESS=true
+              echo "✅ Backend is awake! (HTTP $HTTP_CODE)"
+              break
+            elif [ "$HTTP_CODE" = "000" ]; then
+              echo "   ⚠️  Connection failed or timed out"
+            else
+              echo "   ⚠️  Unexpected response"
+            fi
+          done
+          
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if [ "$SUCCESS" = true ]; then
+            echo "🎉 Wake-up successful!"
+          else
+            echo "⚠️  Backend may still be starting. Scheduled job will retry."
+            echo "   (Not failing workflow to keep schedule stable)"
           fi
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-      - name: Verify API is Ready
+      - name: Verify API Health
+        if: success()
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
-          echo "🔍 Verifying API health..."
-          curl -s --max-time 30 "${BACKEND_URL}/api/health" || echo "API health check timed out"
+          echo "🔍 Quick API verification..."
+          
+          API_RESPONSE=$(curl -s --max-time 15 "${BACKEND_URL}/api/health" 2>/dev/null || echo '{"status":"timeout"}')
+          
+          echo "Response: $API_RESPONSE"
           echo ""
-          echo "✅ Wake-up attempt complete!"
+          echo "✅ Keep-alive workflow complete!"
