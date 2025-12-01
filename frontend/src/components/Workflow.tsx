@@ -568,11 +568,10 @@ function Workflow() {
   const addOrUpdateJobSourceNode = () => {
     if (!selectedJobSource || !selectedJobType || !selectedLocation) return;
 
-    const jobTypeMap: { [key: string]: 'linkedin' | 'remoteok' | 'naukri' | 'wellfound' } = {
+    const jobTypeMap: { [key: string]: 'linkedin' | 'remoteok' | 'naukri' } = {
       linkedin: 'linkedin',
       remoteok: 'remoteok',
       naukri: 'naukri',
-      wellfound: 'wellfound',
     };
 
     const metadata = {
@@ -945,7 +944,6 @@ function Workflow() {
                   <SelectItem value="LinkedIn">LinkedIn Jobs</SelectItem>
                   <SelectItem value="RemoteOK">RemoteOK (Remote)</SelectItem>
                   <SelectItem value="Naukri">Naukri Jobs</SelectItem>
-                  <SelectItem value="Wellfound">Wellfound (Startups)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -976,6 +974,7 @@ function Workflow() {
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="All">All Locations</SelectItem>
                     <SelectItem value="Remote">Remote</SelectItem>
                     <SelectItem value="Mumbai">Mumbai</SelectItem>
                     <SelectItem value="Bangalore">Bangalore</SelectItem>
@@ -1162,7 +1161,6 @@ function Workflow() {
                     <SelectItem value="linkedin">LinkedIn</SelectItem>
                     <SelectItem value="remoteok">RemoteOK</SelectItem>
                     <SelectItem value="naukri">Naukri</SelectItem>
-                    <SelectItem value="wellfound">Wellfound</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1212,10 +1210,10 @@ function Workflow() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="25">25 jobs</SelectItem>
                     <SelectItem value="50">50 jobs</SelectItem>
                     <SelectItem value="100">100 jobs</SelectItem>
                     <SelectItem value="200">200 jobs</SelectItem>
-                    <SelectItem value="-1">Unlimited</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

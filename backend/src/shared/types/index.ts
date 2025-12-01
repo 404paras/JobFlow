@@ -1,4 +1,4 @@
-export type JobSource = 'linkedin' | 'remoteok' | 'naukri' | 'wellfound';
+export type JobSource = 'linkedin' | 'remoteok' | 'naukri';
 export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'any';
 export type DatePosted = 'any' | '24h' | 'week' | 'month';
 export type WorkflowStatus = 'draft' | 'published' | 'paused';
