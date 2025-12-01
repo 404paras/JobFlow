@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
-import { ExecutionStatus, ExecutionLog, NodeType } from '../../shared/types';
+import { ExecutionStatus, ExecutionLog } from '../../shared/types';
 
 export interface IExecution {
   executionId: string;
@@ -11,7 +11,7 @@ export interface IExecution {
   nodeLogs: ExecutionLog[];
   jobsScraped: number;
   jobsFiltered: number;
-  emailsSent: number;
+  jobsSaved: number;
   error?: string;
   triggeredBy: 'schedule' | 'manual' | 'api';
   createdAt: Date;
@@ -24,7 +24,7 @@ const NodeLogSchema = new Schema({
   nodeId: { type: String, required: true },
   nodeType: { 
     type: String, 
-    enum: ['trigger', 'job-source', 'normalize-data', 'filter', 'daily-email'],
+    enum: ['trigger', 'job-source', 'normalize-data', 'filter', 'jobs-output'],
     required: true,
   },
   status: {
@@ -72,7 +72,7 @@ const ExecutionSchema = new Schema<IExecutionDocument>(
     },
     jobsScraped: { type: Number, default: 0 },
     jobsFiltered: { type: Number, default: 0 },
-    emailsSent: { type: Number, default: 0 },
+    jobsSaved: { type: Number, default: 0 },
     error: { type: String },
     triggeredBy: {
       type: String,

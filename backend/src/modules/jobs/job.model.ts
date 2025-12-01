@@ -1,9 +1,7 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 import { JobSource } from '../../shared/types';
 
-// ============================================
-// Interface
-// ============================================
+export type ApplicationStatus = 'none' | 'applied' | 'interview' | 'offer' | 'rejected';
 
 export interface IJobListing {
   uid: string;
@@ -17,18 +15,21 @@ export interface IJobListing {
   source: JobSource;
   raw?: Record<string, any>;
   workflowId: string;
+  userId: mongoose.Types.ObjectId;
   normalized: boolean;
   filtered: boolean;
   qualityScore?: number;
+  isUnread: boolean;
+  viewedAt?: Date;
+  isBookmarked: boolean;
+  applicationStatus: ApplicationStatus;
+  appliedAt?: Date;
+  matchScore?: number;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IJobListingDocument extends IJobListing, Document {}
-
-// ============================================
-// Schema
-// ============================================
 
 const JobListingSchema = new Schema<IJobListingDocument>(
   {
@@ -42,13 +43,11 @@ const JobListingSchema = new Schema<IJobListingDocument>(
       type: String,
       required: true,
       trim: true,
-      index: 'text',
     },
     company: {
       type: String,
       required: true,
       trim: true,
-      index: 'text',
     },
     location: {
       type: String,
@@ -86,6 +85,12 @@ const JobListingSchema = new Schema<IJobListingDocument>(
       required: true,
       index: true,
     },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
     normalized: {
       type: Boolean,
       default: false,
@@ -95,6 +100,33 @@ const JobListingSchema = new Schema<IJobListingDocument>(
       default: false,
     },
     qualityScore: {
+      type: Number,
+      min: 0,
+      max: 100,
+    },
+    isUnread: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    viewedAt: {
+      type: Date,
+    },
+    isBookmarked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    applicationStatus: {
+      type: String,
+      enum: ['none', 'applied', 'interview', 'offer', 'rejected'],
+      default: 'none',
+      index: true,
+    },
+    appliedAt: {
+      type: Date,
+    },
+    matchScore: {
       type: Number,
       min: 0,
       max: 100,
@@ -112,17 +144,22 @@ const JobListingSchema = new Schema<IJobListingDocument>(
   }
 );
 
-// ============================================
-// Indexes
-// ============================================
-
+JobListingSchema.index({ userId: 1, createdAt: -1 });
+JobListingSchema.index({ userId: 1, isUnread: 1 });
+JobListingSchema.index({ userId: 1, isBookmarked: 1 });
+JobListingSchema.index({ userId: 1, applicationStatus: 1 });
+JobListingSchema.index({ userId: 1, source: 1 });
 JobListingSchema.index({ workflowId: 1, source: 1 });
 JobListingSchema.index({ workflowId: 1, createdAt: -1 });
 JobListingSchema.index({ title: 'text', company: 'text', description: 'text' });
 
-// ============================================
-// Static Methods
-// ============================================
+JobListingSchema.index(
+  { createdAt: 1 },
+  { 
+    expireAfterSeconds: 30 * 24 * 60 * 60,
+    partialFilterExpression: { isBookmarked: false }
+  }
+);
 
 JobListingSchema.statics.findByWorkflowId = function (workflowId: string) {
   return this.find({ workflowId }).sort({ postedAt: -1 });
@@ -132,13 +169,17 @@ JobListingSchema.statics.findBySource = function (source: JobSource) {
   return this.find({ source }).sort({ postedAt: -1 });
 };
 
+JobListingSchema.statics.findByUserId = function (userId: string) {
+  return this.find({ userId }).sort({ createdAt: -1 });
+};
+
 JobListingSchema.statics.deleteByWorkflowId = function (workflowId: string) {
   return this.deleteMany({ workflowId });
 };
 
-// ============================================
-// Export
-// ============================================
+JobListingSchema.statics.getNewJobsCount = function (userId: string) {
+  return this.countDocuments({ userId, isUnread: true });
+};
 
 export const JobListing: Model<IJobListingDocument> = mongoose.model<IJobListingDocument>(
   'JobListing',
@@ -146,4 +187,3 @@ export const JobListing: Model<IJobListingDocument> = mongoose.model<IJobListing
 );
 
 export default JobListing;
-

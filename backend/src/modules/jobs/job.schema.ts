@@ -1,10 +1,7 @@
 import { z } from 'zod';
 
-// ============================================
-// Job Schemas
-// ============================================
-
 export const jobSourceEnum = z.enum(['linkedin', 'naukri', 'remoteok', 'google', 'wellfound']);
+export const applicationStatusEnum = z.enum(['none', 'applied', 'interview', 'offer', 'rejected']);
 
 export const createJobSchema = z.object({
   uid: z.string().min(1),
@@ -18,11 +15,25 @@ export const createJobSchema = z.object({
   source: jobSourceEnum,
   raw: z.record(z.any()).optional(),
   workflowId: z.string().min(1),
+  userId: z.string().min(1),
 });
 
 export const bulkCreateJobsSchema = z.object({
   workflowId: z.string().min(1),
-  jobs: z.array(createJobSchema.omit({ workflowId: true })).min(1),
+  userId: z.string().min(1),
+  jobs: z.array(createJobSchema.omit({ workflowId: true, userId: true })).min(1),
+});
+
+export const userJobQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  sortBy: z.enum(['createdAt', 'postedAt', 'matchScore', 'company']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  source: jobSourceEnum.optional(),
+  isUnread: z.coerce.boolean().optional(),
+  isBookmarked: z.coerce.boolean().optional(),
+  applicationStatus: applicationStatusEnum.optional(),
+  search: z.string().optional(),
 });
 
 export const jobQuerySchema = z.object({
@@ -34,9 +45,13 @@ export const jobQuerySchema = z.object({
   source: jobSourceEnum.optional(),
 });
 
-// ============================================
-// Filter Schemas
-// ============================================
+export const updateJobStatusSchema = z.object({
+  applicationStatus: applicationStatusEnum,
+});
+
+export const updateJobBookmarkSchema = z.object({
+  isBookmarked: z.boolean(),
+});
 
 export const filterCriteriaSchema = z.object({
   workflowId: z.string().min(1),
@@ -47,10 +62,6 @@ export const filterCriteriaSchema = z.object({
   source: z.enum(['linkedin', 'naukri', 'remoteok', 'google', 'wellfound', 'any']).optional(),
 });
 
-// ============================================
-// Normalize Schemas
-// ============================================
-
 export const normalizationConfigSchema = z.object({
   workflowId: z.string().min(1),
   fieldMapping: z.enum(['auto', 'manual', 'custom']).default('auto'),
@@ -58,10 +69,6 @@ export const normalizationConfigSchema = z.object({
   removeDuplicates: z.boolean().default(true),
   textCleaning: z.enum(['standard', 'aggressive', 'none']).default('standard'),
 });
-
-// ============================================
-// Quality Check Schemas
-// ============================================
 
 export const qualityCheckConfigSchema = z.object({
   workflowId: z.string().min(1),
@@ -73,14 +80,12 @@ export const qualityCheckConfigSchema = z.object({
   autoRemoveInvalid: z.boolean().default(false),
 });
 
-// ============================================
-// Type Exports
-// ============================================
-
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 export type BulkCreateJobsInput = z.infer<typeof bulkCreateJobsSchema>;
+export type UserJobQueryParams = z.infer<typeof userJobQuerySchema>;
 export type JobQueryParams = z.infer<typeof jobQuerySchema>;
+export type UpdateJobStatusInput = z.infer<typeof updateJobStatusSchema>;
+export type UpdateJobBookmarkInput = z.infer<typeof updateJobBookmarkSchema>;
 export type FilterCriteria = z.infer<typeof filterCriteriaSchema>;
 export type NormalizationConfig = z.infer<typeof normalizationConfigSchema>;
 export type QualityCheckConfig = z.infer<typeof qualityCheckConfigSchema>;
-

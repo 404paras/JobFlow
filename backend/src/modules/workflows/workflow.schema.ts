@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-// ============================================
-// Node Schemas
-// ============================================
-
 const WorkflowNodePositionSchema = z.object({
   x: z.number(),
   y: z.number(),
@@ -11,7 +7,7 @@ const WorkflowNodePositionSchema = z.object({
 
 const WorkflowNodeDataSchema = z.object({
   label: z.string(),
-  type: z.enum(['trigger', 'job-source', 'normalize-data', 'filter', 'daily-email']),
+  type: z.enum(['trigger', 'job-source', 'normalize-data', 'filter', 'jobs-output']),
   jobType: z.enum(['linkedin', 'naukri', 'remoteok', 'google', 'wellfound']).optional(),
   filterCount: z.number().optional(),
   metadata: z.record(z.any()).optional(),
@@ -32,16 +28,14 @@ const WorkflowEdgeSchema = z.object({
   targetHandle: z.string().nullable().optional(),
 });
 
-const EmailConfigSchema = z.object({
-  recipients: z.string().email().or(z.string().regex(/^[\w\.-]+@[\w\.-]+\.\w+$/)),
-  schedule: z.enum(['daily-9am', 'daily-6pm', 'weekly']).default('daily-9am'),
-  format: z.enum(['html', 'plain', 'pdf']).default('html'),
-  isActive: z.boolean().default(true),
+const JobsConfigSchema = z.object({
+  retentionDays: z.number().int().min(7).max(90).default(30),
+  maxJobs: z.number().int().min(-1).max(500).default(100),
+  notifications: z.boolean().default(true),
+  notifyThreshold: z.number().int().min(1).max(50).default(1),
+  defaultSort: z.enum(['newest', 'match', 'company']).default('newest'),
+  autoMarkReadDays: z.number().int().min(0).max(7).default(0),
 }).optional();
-
-// ============================================
-// Request Schemas
-// ============================================
 
 export const createWorkflowSchema = z.object({
   workflowId: z.string().min(1).max(50),
@@ -49,7 +43,7 @@ export const createWorkflowSchema = z.object({
   status: z.enum(['draft', 'published', 'paused']).default('draft'),
   nodes: z.array(WorkflowNodeSchema).default([]),
   edges: z.array(WorkflowEdgeSchema).default([]),
-  emailConfig: EmailConfigSchema,
+  jobsConfig: JobsConfigSchema,
 });
 
 export const updateWorkflowSchema = z.object({
@@ -57,7 +51,7 @@ export const updateWorkflowSchema = z.object({
   status: z.enum(['draft', 'published', 'paused']).optional(),
   nodes: z.array(WorkflowNodeSchema).optional(),
   edges: z.array(WorkflowEdgeSchema).optional(),
-  emailConfig: EmailConfigSchema,
+  jobsConfig: JobsConfigSchema,
 });
 
 export const workflowIdParamSchema = z.object({
@@ -73,11 +67,6 @@ export const workflowQuerySchema = z.object({
   userId: z.string().optional(),
 });
 
-// ============================================
-// Type Exports
-// ============================================
-
 export type CreateWorkflowInput = z.infer<typeof createWorkflowSchema>;
 export type UpdateWorkflowInput = z.infer<typeof updateWorkflowSchema>;
 export type WorkflowQueryParams = z.infer<typeof workflowQuerySchema>;
-

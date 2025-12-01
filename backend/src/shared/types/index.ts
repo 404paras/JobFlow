@@ -2,10 +2,9 @@ export type JobSource = 'linkedin' | 'remoteok' | 'naukri' | 'google' | 'wellfou
 export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'any';
 export type DatePosted = 'any' | '24h' | 'week' | 'month';
 export type WorkflowStatus = 'draft' | 'published' | 'paused';
-export type NodeType = 'trigger' | 'job-source' | 'normalize-data' | 'filter' | 'daily-email';
-export type EmailSchedule = 'daily-9am' | 'daily-6pm' | 'weekly';
-export type EmailFormat = 'html' | 'plain' | 'pdf';
+export type NodeType = 'trigger' | 'job-source' | 'normalize-data' | 'filter' | 'jobs-output';
 export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type ApplicationStatus = 'none' | 'applied' | 'interview' | 'offer' | 'rejected';
 
 export interface WorkflowNodePosition {
   x: number;
@@ -47,9 +46,16 @@ export interface JobListing {
   source: JobSource;
   raw?: Record<string, any>;
   workflowId: string;
+  userId: string;
   normalized?: boolean;
   filtered?: boolean;
   qualityScore?: number;
+  isUnread: boolean;
+  viewedAt?: Date;
+  isBookmarked: boolean;
+  applicationStatus: ApplicationStatus;
+  appliedAt?: Date;
+  matchScore?: number;
 }
 
 export interface ScrapedJob {
@@ -134,25 +140,13 @@ export interface ExecutionLog {
   metadata?: Record<string, any>;
 }
 
-export interface EmailConfig {
-  recipients: string;
-  schedule: EmailSchedule;
-  format: EmailFormat;
-  lastSentAt?: Date;
-  sentCount: number;
-  isActive: boolean;
-  pausedAt?: Date;
-}
-
-export interface EmailPayload {
-  to: string | string[];
-  subject: string;
-  html?: string;
-  text?: string;
-  attachments?: Array<{
-    filename: string;
-    content: Buffer | string;
-  }>;
+export interface JobsConfig {
+  retentionDays: number;
+  maxJobs: number;
+  notifications: boolean;
+  notifyThreshold: number;
+  defaultSort: 'newest' | 'match' | 'company';
+  autoMarkReadDays: number;
 }
 
 export interface PaginationParams {

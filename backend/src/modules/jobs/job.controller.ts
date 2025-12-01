@@ -1,36 +1,126 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { jobService } from './job.service';
 import {
   JobQueryParams,
+  UserJobQueryParams,
   BulkCreateJobsInput,
   FilterCriteria,
   NormalizationConfig,
   QualityCheckConfig,
+  UpdateJobStatusInput,
 } from './job.schema';
+import { AuthRequest } from '../users/auth.middleware';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { ApiResponse } from '../../shared/types';
 
 export class JobController {
-  /**
-   * Get all jobs with pagination
-   * GET /api/jobs
-   */
-  findAll = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    // Use validated query params or fall back to raw query
-    const params = ((req as any).validatedData?.query || req.query) as unknown as JobQueryParams;
+  getUserJobs = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const params = (req as any).validatedData?.query || req.query;
 
-    const result = await jobService.findAll(params);
-
+    const result = await jobService.findUserJobs(userId, params as UserJobQueryParams);
     res.json(result);
   });
 
-  /**
-   * Get a single job by ID
-   * GET /api/jobs/:id
-   */
-  findById = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  getJobCounts = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const counts = await jobService.getJobCounts(userId);
+
+    res.json({
+      success: true,
+      data: counts,
+    });
+  });
+
+  markJobAsRead = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
     const { id } = req.params;
 
+    const job = await jobService.markJobAsRead(userId, id);
+
+    res.json({
+      success: true,
+      data: job,
+    });
+  });
+
+  markAllJobsAsRead = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const result = await jobService.markAllJobsAsRead(userId);
+
+    res.json({
+      success: true,
+      message: `Marked ${result.modifiedCount} jobs as read`,
+      data: result,
+    });
+  });
+
+  updateJobStatus = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const { id } = req.params;
+    const { applicationStatus } = req.body as UpdateJobStatusInput;
+
+    const job = await jobService.updateJobStatus(userId, id, applicationStatus);
+
+    res.json({
+      success: true,
+      data: job,
+    });
+  });
+
+  toggleBookmark = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const { id } = req.params;
+
+    const job = await jobService.toggleBookmark(userId, id);
+
+    res.json({
+      success: true,
+      data: job,
+    });
+  });
+
+  deleteUserJob = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const { id } = req.params;
+
+    await jobService.deleteUserJob(userId, id);
+
+    res.json({
+      success: true,
+      message: 'Job deleted successfully',
+    });
+  });
+
+  calculateMatchScores = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const { skills } = req.body;
+
+    if (!skills || !Array.isArray(skills)) {
+      res.status(400).json({
+        success: false,
+        message: 'Skills array is required',
+      });
+      return;
+    }
+
+    const count = await jobService.calculateMatchScoresForUser(userId, skills);
+
+    res.json({
+      success: true,
+      message: `Calculated match scores for ${count} jobs`,
+      data: { updatedCount: count },
+    });
+  });
+
+  findAll = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const params = ((req as any).validatedData?.query || req.query) as unknown as JobQueryParams;
+    const result = await jobService.findAll(params);
+    res.json(result);
+  });
+
+  findById = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
     const job = await jobService.findById(id);
 
     const response: ApiResponse = {
@@ -41,13 +131,8 @@ export class JobController {
     res.json(response);
   });
 
-  /**
-   * Bulk create jobs
-   * POST /api/jobs/bulk
-   */
-  bulkCreate = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  bulkCreate = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const data = req.body as BulkCreateJobsInput;
-
     const result = await jobService.bulkCreate(data);
 
     const response: ApiResponse = {
@@ -59,13 +144,8 @@ export class JobController {
     res.status(201).json(response);
   });
 
-  /**
-   * Filter jobs by criteria
-   * POST /api/jobs/filter
-   */
-  filter = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  filter = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const criteria = req.body as FilterCriteria;
-
     const result = await jobService.filter(criteria);
 
     const response: ApiResponse = {
@@ -76,13 +156,8 @@ export class JobController {
     res.json(response);
   });
 
-  /**
-   * Normalize jobs
-   * POST /api/jobs/normalize
-   */
-  normalize = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  normalize = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const config = req.body as NormalizationConfig;
-
     const result = await jobService.normalize(config);
 
     const response: ApiResponse = {
@@ -94,13 +169,8 @@ export class JobController {
     res.json(response);
   });
 
-  /**
-   * Quality check jobs
-   * POST /api/jobs/quality-check
-   */
-  qualityCheck = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  qualityCheck = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const config = req.body as QualityCheckConfig;
-
     const result = await jobService.qualityCheck(config);
 
     const response: ApiResponse = {
@@ -112,13 +182,8 @@ export class JobController {
     res.json(response);
   });
 
-  /**
-   * Delete all jobs for a workflow
-   * DELETE /api/jobs/workflow/:workflowId
-   */
-  deleteByWorkflowId = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  deleteByWorkflowId = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
     const { workflowId } = req.params;
-
     const result = await jobService.deleteByWorkflowId(workflowId);
 
     const response: ApiResponse = {
@@ -133,4 +198,3 @@ export class JobController {
 
 export const jobController = new JobController();
 export default jobController;
-

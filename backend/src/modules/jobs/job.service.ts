@@ -1,8 +1,9 @@
-import { JobListing, IJobListingDocument } from './job.model';
+import { JobListing, IJobListingDocument, ApplicationStatus } from './job.model';
 import {
   CreateJobInput,
   BulkCreateJobsInput,
   JobQueryParams,
+  UserJobQueryParams,
   FilterCriteria,
   NormalizationConfig,
   QualityCheckConfig,
@@ -10,10 +11,6 @@ import {
 import { NotFoundError } from '../../shared/middleware/error-handler';
 import { logger } from '../../shared/utils/logger';
 import { PaginatedResponse, JobSource } from '../../shared/types';
-
-// ============================================
-// Quality Checker Class
-// ============================================
 
 interface QualityCheckResult {
   isValid: boolean;
@@ -54,7 +51,6 @@ class JobQualityChecker {
     const warnings: string[] = [];
     let score = 100;
 
-    // Check required fields
     if (!job.title || job.title.length < this.config.minTitleLength) {
       issues.push(`Title too short (min ${this.config.minTitleLength} chars)`);
       score -= 20;
@@ -80,7 +76,6 @@ class JobQualityChecker {
       score -= 10;
     }
 
-    // Check for spam
     if (this.config.checkSpam) {
       const text = `${job.title} ${job.description} ${job.company}`.toLowerCase();
       for (const keyword of this.spamKeywords) {
@@ -92,7 +87,6 @@ class JobQualityChecker {
       }
     }
 
-    // Check date
     if (job.postedAt) {
       const daysDiff = (Date.now() - new Date(job.postedAt).getTime()) / (1000 * 60 * 60 * 24);
       if (daysDiff > this.config.maxDaysOld) {
@@ -124,7 +118,6 @@ class JobQualityChecker {
       const result = this.checkJob(job);
       const key = `${job.title?.toLowerCase()}-${job.company?.toLowerCase()}`;
 
-      // Check for duplicates
       if (seen.has(key)) {
         result.isValid = false;
         result.issues.push('Duplicate job in batch');
@@ -147,10 +140,6 @@ class JobQualityChecker {
   }
 }
 
-// ============================================
-// Data Normalizer Class
-// ============================================
-
 class DataNormalizer {
   private config: NormalizationConfig;
 
@@ -161,17 +150,14 @@ class DataNormalizer {
   normalize(jobs: any[]): any[] {
     let normalized = [...jobs];
 
-    // Clean text
     if (this.config.textCleaning !== 'none') {
       normalized = normalized.map((job) => this.cleanText(job));
     }
 
-    // Remove duplicates
     if (this.config.removeDuplicates) {
       normalized = this.removeDuplicates(normalized);
     }
 
-    // Auto-map fields
     if (this.config.fieldMapping === 'auto') {
       normalized = normalized.map((job) => this.autoMapFields(job));
     }
@@ -206,12 +192,10 @@ class DataNormalizer {
   private autoMapFields(job: any): any {
     const mapped = { ...job };
 
-    // Normalize salary
     if (mapped.salary) {
       mapped.salary = mapped.salary.replace(/(\d+)k/gi, '$1000');
     }
 
-    // Normalize location (capitalize)
     if (mapped.location) {
       mapped.location = mapped.location
         .split(' ')
@@ -222,10 +206,6 @@ class DataNormalizer {
     return mapped;
   }
 }
-
-// ============================================
-// Data Filter Class
-// ============================================
 
 class DataFilter {
   private criteria: FilterCriteria;
@@ -284,14 +264,168 @@ class DataFilter {
   }
 }
 
-// ============================================
-// Job Service
-// ============================================
-
 export class JobService {
-  /**
-   * Get all jobs with pagination
-   */
+  async findUserJobs(userId: string, params: UserJobQueryParams): Promise<PaginatedResponse<IJobListingDocument>> {
+    const { page, limit, sortBy, sortOrder, source, isUnread, isBookmarked, applicationStatus, search } = params;
+    const skip = (page - 1) * limit;
+
+    const query: Record<string, any> = { userId };
+    
+    if (source) query.source = source;
+    if (typeof isUnread === 'boolean') query.isUnread = isUnread;
+    if (typeof isBookmarked === 'boolean') query.isBookmarked = isBookmarked;
+    if (applicationStatus) query.applicationStatus = applicationStatus;
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { company: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const sort: Record<string, 1 | -1> = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+
+    const [jobs, total] = await Promise.all([
+      JobListing.find(query).sort(sort).skip(skip).limit(limit).lean(),
+      JobListing.countDocuments(query),
+    ]);
+
+    return {
+      success: true,
+      data: jobs as IJobListingDocument[],
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getJobCounts(userId: string): Promise<{ total: number; new: number; bookmarked: number; applied: number }> {
+    const [total, newCount, bookmarked, applied] = await Promise.all([
+      JobListing.countDocuments({ userId }),
+      JobListing.countDocuments({ userId, isUnread: true }),
+      JobListing.countDocuments({ userId, isBookmarked: true }),
+      JobListing.countDocuments({ userId, applicationStatus: { $ne: 'none' } }),
+    ]);
+
+    return { total, new: newCount, bookmarked, applied };
+  }
+
+  async markJobAsRead(userId: string, jobId: string): Promise<IJobListingDocument> {
+    const job = await JobListing.findOneAndUpdate(
+      { _id: jobId, userId },
+      { $set: { isUnread: false, viewedAt: new Date() } },
+      { new: true }
+    );
+
+    if (!job) {
+      throw new NotFoundError('Job');
+    }
+
+    return job;
+  }
+
+  async markAllJobsAsRead(userId: string): Promise<{ modifiedCount: number }> {
+    const result = await JobListing.updateMany(
+      { userId, isUnread: true },
+      { $set: { isUnread: false, viewedAt: new Date() } }
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  async updateJobStatus(userId: string, jobId: string, status: ApplicationStatus): Promise<IJobListingDocument> {
+    const updateData: any = { applicationStatus: status };
+    
+    if (status === 'applied') {
+      updateData.appliedAt = new Date();
+    }
+
+    const job = await JobListing.findOneAndUpdate(
+      { _id: jobId, userId },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!job) {
+      throw new NotFoundError('Job');
+    }
+
+    logger.info('Job status updated', { jobId, userId, status });
+    return job;
+  }
+
+  async toggleBookmark(userId: string, jobId: string): Promise<IJobListingDocument> {
+    const job = await JobListing.findOne({ _id: jobId, userId });
+    
+    if (!job) {
+      throw new NotFoundError('Job');
+    }
+
+    job.isBookmarked = !job.isBookmarked;
+    await job.save();
+
+    logger.info('Job bookmark toggled', { jobId, userId, isBookmarked: job.isBookmarked });
+    return job;
+  }
+
+  async deleteUserJob(userId: string, jobId: string): Promise<void> {
+    const result = await JobListing.deleteOne({ _id: jobId, userId });
+    
+    if (result.deletedCount === 0) {
+      throw new NotFoundError('Job');
+    }
+
+    logger.info('Job deleted', { jobId, userId });
+  }
+
+  async calculateMatchScore(jobId: string, skills: string[]): Promise<number> {
+    const job = await JobListing.findById(jobId);
+    if (!job) return 0;
+
+    const jobText = `${job.title} ${job.description}`.toLowerCase();
+    const matchedSkills = skills.filter(skill => 
+      jobText.includes(skill.toLowerCase())
+    );
+
+    const score = skills.length > 0 
+      ? Math.round((matchedSkills.length / skills.length) * 100)
+      : 0;
+
+    await JobListing.updateOne({ _id: jobId }, { $set: { matchScore: score } });
+    
+    return score;
+  }
+
+  async calculateMatchScoresForUser(userId: string, skills: string[]): Promise<number> {
+    if (skills.length === 0) return 0;
+
+    const jobs = await JobListing.find({ userId, matchScore: { $exists: false } });
+    
+    const bulkOps = jobs.map(job => {
+      const jobText = `${job.title} ${job.description}`.toLowerCase();
+      const matchedSkills = skills.filter(skill => 
+        jobText.includes(skill.toLowerCase())
+      );
+      const score = Math.round((matchedSkills.length / skills.length) * 100);
+
+      return {
+        updateOne: {
+          filter: { _id: job._id },
+          update: { $set: { matchScore: score } },
+        },
+      };
+    });
+
+    if (bulkOps.length > 0) {
+      await JobListing.bulkWrite(bulkOps);
+    }
+
+    return bulkOps.length;
+  }
+
   async findAll(params: JobQueryParams): Promise<PaginatedResponse<IJobListingDocument>> {
     const { page, limit, sortBy, sortOrder, workflowId, source } = params;
     const skip = (page - 1) * limit;
@@ -319,9 +453,6 @@ export class JobService {
     };
   }
 
-  /**
-   * Get a single job by ID
-   */
   async findById(id: string): Promise<IJobListingDocument> {
     const job = await JobListing.findById(id);
     if (!job) {
@@ -330,23 +461,24 @@ export class JobService {
     return job;
   }
 
-  /**
-   * Bulk create jobs
-   */
   async bulkCreate(data: BulkCreateJobsInput): Promise<{ inserted: number; duplicates: number }> {
-    const jobsWithWorkflow = data.jobs.map((job) => ({
+    const jobsWithMeta = data.jobs.map((job) => ({
       ...job,
       workflowId: data.workflowId,
+      userId: data.userId,
+      isUnread: true,
+      isBookmarked: false,
+      applicationStatus: 'none',
     }));
 
     try {
-      const result = await JobListing.insertMany(jobsWithWorkflow, { ordered: false });
+      const result = await JobListing.insertMany(jobsWithMeta, { ordered: false });
       logger.info('Bulk jobs created', { workflowId: data.workflowId, count: result.length });
       return { inserted: result.length, duplicates: 0 };
     } catch (error: any) {
       if (error.code === 11000) {
         const inserted = error.insertedDocs?.length || 0;
-        const duplicates = jobsWithWorkflow.length - inserted;
+        const duplicates = jobsWithMeta.length - inserted;
         logger.info('Bulk jobs created with duplicates', { inserted, duplicates });
         return { inserted, duplicates };
       }
@@ -354,9 +486,6 @@ export class JobService {
     }
   }
 
-  /**
-   * Filter jobs by criteria
-   */
   async filter(criteria: FilterCriteria): Promise<{ total: number; filtered: number; jobs: any[] }> {
     const jobs = await JobListing.find({ workflowId: criteria.workflowId }).lean();
     const filter = new DataFilter(criteria);
@@ -369,15 +498,11 @@ export class JobService {
     };
   }
 
-  /**
-   * Normalize jobs
-   */
   async normalize(config: NormalizationConfig): Promise<{ total: number; normalized: number }> {
     const jobs = await JobListing.find({ workflowId: config.workflowId }).lean();
     const normalizer = new DataNormalizer(config);
     const normalizedJobs = normalizer.normalize(jobs);
 
-    // Update in database
     const bulkOps = normalizedJobs.map((job: any) => ({
       updateOne: {
         filter: { uid: job.uid },
@@ -397,9 +522,6 @@ export class JobService {
     };
   }
 
-  /**
-   * Quality check jobs
-   */
   async qualityCheck(config: QualityCheckConfig): Promise<{
     stats: { total: number; valid: number; invalid: number; averageScore: number };
     results: Array<{ jobId: string; isValid: boolean; score: number; issues: string[] }>;
@@ -451,9 +573,6 @@ export class JobService {
     };
   }
 
-  /**
-   * Delete all jobs for a workflow
-   */
   async deleteByWorkflowId(workflowId: string): Promise<{ deletedCount: number }> {
     const result = await JobListing.deleteMany({ workflowId });
     logger.info('Jobs deleted for workflow', { workflowId, count: result.deletedCount });
@@ -463,4 +582,3 @@ export class JobService {
 
 export const jobService = new JobService();
 export default jobService;
-

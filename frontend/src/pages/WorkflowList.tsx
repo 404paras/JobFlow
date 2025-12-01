@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import type { Workflow } from '../lib/types';
 import { api } from '../lib/api';
-import { Trash2, Play, Square, LogOut, Plus, Mail, FileText, AlertCircle, Clock, Info, Zap, ZapOff, Shield } from 'lucide-react';
+import { Trash2, Play, Square, LogOut, Plus, FileText, AlertCircle, Clock, Info, Zap, ZapOff, Shield, Briefcase } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialog';
 import { ResumeUpload } from '../components/ResumeUpload';
 import { toast } from 'sonner';
@@ -30,12 +30,22 @@ export default function WorkflowList() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; workflowId: string; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorDialog, setErrorDialog] = useState<{ open: boolean; message: string } | null>(null);
+  const [newJobsCount, setNewJobsCount] = useState(0);
+
+  const loadJobCounts = async () => {
+    try {
+      const counts = await api.getJobCounts();
+      setNewJobsCount(counts.new);
+    } catch (error) {
+      console.error('Failed to load job counts:', error);
+    }
+  };
 
   useEffect(() => {
     loadWorkflows();
     loadRunningWorkflows();
+    loadJobCounts();
     
-    // Poll for running workflows only when tab is visible
     let interval: ReturnType<typeof setInterval> | null = null;
     
     const startPolling = () => {
@@ -221,15 +231,6 @@ export default function WorkflowList() {
     });
   };
 
-  const formatSchedule = (schedule: string) => {
-    const scheduleMap: Record<string, string> = {
-      'daily-9am': 'Daily at 9 AM',
-      'daily-6pm': 'Daily at 6 PM',
-      'weekly': 'Weekly (Mon 9 AM)',
-    };
-    return scheduleMap[schedule] || schedule;
-  };
-
   const getTimeRemaining = (deactivatesAt: string) => {
     const now = new Date();
     const end = new Date(deactivatesAt);
@@ -272,6 +273,24 @@ export default function WorkflowList() {
           
           <div className="flex items-center gap-2 sm:gap-3">
             {isAuthenticated && FEATURES.RESUME_UPLOAD && <ResumeUpload />}
+            
+            {isAuthenticated && (
+              <Link to="/jobs">
+                <Button 
+                  variant="outline" 
+                  className="relative border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 font-medium rounded-xl transition-all"
+                >
+                  <Briefcase size={16} className="mr-2" />
+                  My Jobs
+                  {newJobsCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {newJobsCount > 99 ? '99+' : newJobsCount}
+                    </span>
+                  )}
+                </Button>
+              </Link>
+            )}
+
             <FeedbackDialog />
 
             {isAuthenticated && (
@@ -452,10 +471,10 @@ export default function WorkflowList() {
                     {workflow.executionCount > 0 && (
                       <div>Executed: {workflow.executionCount} times</div>
                     )}
-                    {workflow.emailConfig?.recipients && (
-                      <div className="text-indigo-600 flex items-center gap-1">
-                        <Mail size={14} />
-                        {formatSchedule(workflow.emailConfig.schedule)}
+                    {workflow.jobsConfig && (
+                      <div className="text-emerald-600 flex items-center gap-1">
+                        <Briefcase size={14} />
+                        Jobs Output Active
                       </div>
                     )}
                     {isThisActive && workflow.deactivatesAt && (

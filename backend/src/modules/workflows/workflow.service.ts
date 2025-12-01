@@ -6,47 +6,36 @@ import { logger } from '../../shared/utils/logger';
 import { PaginatedResponse, WorkflowNode, WorkflowEdge } from '../../shared/types';
 
 export class WorkflowService {
-  /**
-   * Deduplicate email nodes with same configuration.
-   * If multiple email nodes have same recipients/schedule/format, merge them into one
-   * and redirect all incoming edges to the single node.
-   */
-  private deduplicateEmailNodes(
+  private deduplicateJobsOutputNodes(
     nodes: WorkflowNode[],
     edges: WorkflowEdge[]
   ): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
-    // Find all email nodes
-    const emailNodes = nodes.filter(n => n.data?.type === 'daily-email');
+    const outputNodes = nodes.filter(n => n.data?.type === 'jobs-output');
     
-    if (emailNodes.length <= 1) {
+    if (outputNodes.length <= 1) {
       return { nodes, edges };
     }
 
-    // Group email nodes by their config signature
-    const emailGroups = new Map<string, WorkflowNode[]>();
+    const outputGroups = new Map<string, WorkflowNode[]>();
     
-    for (const node of emailNodes) {
+    for (const node of outputNodes) {
       const metadata = node.data.metadata || {};
-      // Create a signature from the email config
       const signature = JSON.stringify({
-        recipients: (metadata.recipients || '').toLowerCase().trim(),
-        schedule: metadata.schedule || 'Daily at 9 AM',
-        format: metadata.format || 'HTML',
+        schedule: metadata.schedule || 'daily-9am',
+        maxJobs: metadata.maxJobs || 100,
       });
       
-      if (!emailGroups.has(signature)) {
-        emailGroups.set(signature, []);
+      if (!outputGroups.has(signature)) {
+        outputGroups.set(signature, []);
       }
-      emailGroups.get(signature)!.push(node);
+      outputGroups.get(signature)!.push(node);
     }
 
-    // Find duplicates and merge
     const nodesToRemove = new Set<string>();
-    const edgeUpdates = new Map<string, string>(); // oldNodeId -> newNodeId
+    const edgeUpdates = new Map<string, string>();
 
-    for (const [, group] of emailGroups) {
+    for (const [, group] of outputGroups) {
       if (group.length > 1) {
-        // Keep the first node, remove the rest
         const keepNode = group[0];
         
         for (let i = 1; i < group.length; i++) {
@@ -55,10 +44,9 @@ export class WorkflowService {
           edgeUpdates.set(duplicateNode.id, keepNode.id);
         }
 
-        logger.info('Merged duplicate email nodes', {
+        logger.info('Merged duplicate jobs output nodes', {
           keptNodeId: keepNode.id,
           removedCount: group.length - 1,
-          recipients: keepNode.data.metadata?.recipients,
         });
       }
     }
@@ -67,10 +55,8 @@ export class WorkflowService {
       return { nodes, edges };
     }
 
-    // Filter out removed nodes
     const filteredNodes = nodes.filter(n => !nodesToRemove.has(n.id));
 
-    // Update edges: redirect edges pointing to removed nodes
     const updatedEdges = edges
       .map(edge => {
         const newTarget = edgeUpdates.get(edge.target);
@@ -79,16 +65,15 @@ export class WorkflowService {
         }
         return edge;
       })
-      // Remove duplicate edges (same source -> same target)
       .filter((edge, index, self) => {
         const key = `${edge.source}-${edge.target}`;
         return index === self.findIndex(e => `${e.source}-${e.target}` === key);
       })
-      // Remove edges from removed nodes
       .filter(edge => !nodesToRemove.has(edge.source));
 
     return { nodes: filteredNodes, edges: updatedEdges };
   }
+
   async create(data: CreateWorkflowInput, userId?: string): Promise<IWorkflowDocument> {
     const existing = await Workflow.findOne({ workflowId: data.workflowId });
     if (existing) {
@@ -103,8 +88,7 @@ export class WorkflowService {
       }
     }
 
-    // Deduplicate email nodes with same config
-    const { nodes, edges } = this.deduplicateEmailNodes(
+    const { nodes, edges } = this.deduplicateJobsOutputNodes(
       (data.nodes || []) as WorkflowNode[],
       (data.edges || []) as WorkflowEdge[]
     );
@@ -195,38 +179,37 @@ export class WorkflowService {
       workflow.status = data.status;
     }
     if (data.nodes !== undefined || data.edges !== undefined) {
-      // Get current or new nodes/edges
       const inputNodes = (data.nodes || workflow.nodes) as WorkflowNode[];
       const inputEdges = (data.edges || workflow.edges) as WorkflowEdge[];
       
-      // Deduplicate email nodes with same config
-      const { nodes, edges } = this.deduplicateEmailNodes(inputNodes, inputEdges);
+      const { nodes, edges } = this.deduplicateJobsOutputNodes(inputNodes, inputEdges);
       
       workflow.nodes = nodes as any;
       workflow.edges = edges as any;
       workflow.nodeCount = nodes.length;
       
-      // Update email config from the (possibly merged) email node
-      const emailNode = nodes.find((n: any) => n.data?.type === 'daily-email');
-      if (emailNode?.data?.metadata) {
-        const metadata = emailNode.data.metadata;
-        workflow.emailConfig = {
-          recipients: metadata.recipients || '',
-          schedule: metadata.schedule === 'Daily at 9 AM' ? 'daily-9am' : 
-                    metadata.schedule === 'Daily at 6 PM' ? 'daily-6pm' : 
-                    metadata.schedule === 'Weekly' ? 'weekly' : 'daily-9am',
-          format: metadata.format === 'HTML' ? 'html' : 
-                  metadata.format === 'Plain Text' ? 'plain' : 'html',
-          sentCount: workflow.emailConfig?.sentCount || 0,
-          isActive: workflow.status === 'published',
-        } as any;
+      const jobsOutputNode = nodes.find((n: any) => n.data?.type === 'jobs-output');
+      if (jobsOutputNode?.data?.metadata) {
+        const metadata = jobsOutputNode.data.metadata;
+        workflow.jobsConfig = {
+          retentionDays: metadata.retentionDays || 30,
+          maxJobs: metadata.maxJobs || 100,
+          notifications: metadata.notifications !== false,
+          notifyThreshold: 1,
+          defaultSort: 'newest',
+          autoMarkReadDays: 0,
+        };
       }
     }
-    if (data.emailConfig !== undefined) {
-      workflow.emailConfig = {
-        ...data.emailConfig,
-        sentCount: workflow.emailConfig?.sentCount || 0,
-      } as any;
+    if (data.jobsConfig !== undefined) {
+      workflow.jobsConfig = {
+        retentionDays: data.jobsConfig.retentionDays ?? 30,
+        maxJobs: data.jobsConfig.maxJobs ?? 100,
+        notifications: data.jobsConfig.notifications ?? true,
+        notifyThreshold: data.jobsConfig.notifyThreshold ?? 1,
+        defaultSort: data.jobsConfig.defaultSort ?? 'newest',
+        autoMarkReadDays: data.jobsConfig.autoMarkReadDays ?? 0,
+      };
     }
 
     await workflow.save();
@@ -263,10 +246,6 @@ export class WorkflowService {
     }
 
     workflow.status = 'published';
-    if (workflow.emailConfig) {
-      workflow.emailConfig.isActive = true;
-    }
-
     await workflow.save();
     logger.info('Workflow published', { workflowId: id });
 
@@ -280,22 +259,16 @@ export class WorkflowService {
     }
 
     workflow.status = 'paused';
-    if (workflow.emailConfig) {
-      workflow.emailConfig.isActive = false;
-      workflow.emailConfig.pausedAt = new Date();
-    }
-
     await workflow.save();
     logger.info('Workflow paused', { workflowId: id });
 
     return workflow;
   }
 
-  async findActiveEmailWorkflows(): Promise<IWorkflowDocument[]> {
+  async findActiveWorkflows(): Promise<IWorkflowDocument[]> {
     return Workflow.find({
       status: 'published',
       isActive: true,
-      'emailConfig.isActive': true,
     });
   }
 
@@ -319,7 +292,6 @@ export class WorkflowService {
       throw new ConflictError('Only published workflows can be activated');
     }
 
-    // Check if user already has an active workflow
     const existingActive = await Workflow.findOne({ 
       userId, 
       isActive: true,
@@ -327,7 +299,6 @@ export class WorkflowService {
     });
 
     if (existingActive) {
-      // Deactivate the existing active workflow
       existingActive.isActive = false;
       existingActive.activatedAt = undefined;
       existingActive.deactivatesAt = undefined;
@@ -335,9 +306,8 @@ export class WorkflowService {
       logger.info('Previous workflow deactivated', { workflowId: existingActive.workflowId });
     }
 
-    // Activate the new workflow for 2 days
     const now = new Date();
-    const deactivatesAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days from now
+    const deactivatesAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
 
     workflow.isActive = true;
     workflow.activatedAt = now;

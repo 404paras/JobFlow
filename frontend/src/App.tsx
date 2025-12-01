@@ -8,6 +8,7 @@ import Register from "./pages/Register"
 import WorkflowList from "./pages/WorkflowList"
 import Workflow from "./components/Workflow"
 import AdminDashboard from "./pages/AdminDashboard"
+import MyJobs from "./pages/MyJobs"
 
 // Protected Route Component - redirects to login if not authenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -79,6 +80,11 @@ function AppRoutes() {
       <Route path="/admin" element={
         <ProtectedRoute>
           <AdminDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/jobs" element={
+        <ProtectedRoute>
+          <MyJobs />
         </ProtectedRoute>
       } />
     </Routes>

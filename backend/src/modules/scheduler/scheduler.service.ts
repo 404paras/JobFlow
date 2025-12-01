@@ -3,12 +3,13 @@ import { Workflow, IWorkflowDocument } from '../workflows/workflow.model';
 import { executorService } from '../executor/executor.service';
 import { workflowService } from '../workflows/workflow.service';
 import { logger } from '../../shared/utils/logger';
-import { EmailSchedule } from '../../shared/types';
+
+type Schedule = 'daily-9am' | 'daily-6pm' | 'weekly';
 
 interface ScheduledWorkflow {
   workflowId: string;
   task: ScheduledTask;
-  schedule: EmailSchedule;
+  schedule: Schedule;
 }
 
 export class SchedulerService {
@@ -16,42 +17,35 @@ export class SchedulerService {
   private deactivationTask: ScheduledTask | null = null;
   private isRunning = false;
 
-  /**
-   * Convert email schedule to cron expression
-   */
-  private getCronExpression(schedule: EmailSchedule): string {
+  private getCronExpression(schedule: Schedule): string {
     switch (schedule) {
       case 'daily-9am':
-        return '0 9 * * *'; // Every day at 9 AM
+        return '0 9 * * *';
       case 'daily-6pm':
-        return '0 18 * * *'; // Every day at 6 PM
+        return '0 18 * * *';
       case 'weekly':
-        return '0 9 * * 1'; // Every Monday at 9 AM
+        return '0 9 * * 1';
       default:
-        return '0 9 * * *'; // Default to daily 9 AM
+        return '0 9 * * *';
     }
   }
 
-  /**
-   * Schedule a workflow for execution
-   */
   scheduleWorkflow(workflow: IWorkflowDocument): void {
     const workflowId = workflow.workflowId;
 
-    // Remove existing schedule if any
     this.unscheduleWorkflow(workflowId);
 
-    // Only schedule if workflow is published and has email config
-    if (workflow.status !== 'published' || !workflow.emailConfig?.isActive) {
+    if (workflow.status !== 'published' || !workflow.isActive) {
       logger.debug('Workflow not eligible for scheduling', {
         workflowId,
         status: workflow.status,
-        emailConfigActive: workflow.emailConfig?.isActive,
+        isActive: workflow.isActive,
       });
       return;
     }
 
-    const schedule = workflow.emailConfig.schedule || 'daily-9am';
+    const jobsOutputNode = workflow.nodes.find(n => n.data.type === 'jobs-output');
+    const schedule: Schedule = jobsOutputNode?.data.metadata?.schedule || 'daily-9am';
     const cronExpression = this.getCronExpression(schedule);
 
     const task = cron.schedule(cronExpression, async () => {
@@ -67,7 +61,7 @@ export class SchedulerService {
         });
       }
     }, {
-      timezone: 'Asia/Kolkata', // IST timezone
+      timezone: 'Asia/Kolkata',
     });
 
     this.scheduledWorkflows.set(workflowId, {
@@ -87,9 +81,6 @@ export class SchedulerService {
     });
   }
 
-  /**
-   * Unschedule a workflow
-   */
   unscheduleWorkflow(workflowId: string): void {
     const scheduled = this.scheduledWorkflows.get(workflowId);
     if (scheduled) {
@@ -99,16 +90,11 @@ export class SchedulerService {
     }
   }
 
-  /**
-   * Load and schedule all active workflows
-   */
   async loadAllWorkflows(): Promise<void> {
     try {
-      // Only load workflows that are published, active, and have email config
       const workflows = await Workflow.find({
         status: 'published',
         isActive: true,
-        'emailConfig.isActive': true,
       });
 
       logger.info('Loading scheduled workflows', { count: workflows.length });
@@ -123,14 +109,10 @@ export class SchedulerService {
     }
   }
 
-  /**
-   * Check and deactivate expired workflows
-   */
   async checkExpiredWorkflows(): Promise<void> {
     try {
       const count = await workflowService.deactivateExpiredWorkflows();
       if (count > 0) {
-        // Refresh scheduler to remove deactivated workflows
         await this.refresh();
       }
     } catch (error) {
@@ -140,9 +122,6 @@ export class SchedulerService {
     }
   }
 
-  /**
-   * Start the scheduler
-   */
   async start(): Promise<void> {
     if (this.isRunning) {
       logger.warn('Scheduler is already running');
@@ -151,10 +130,8 @@ export class SchedulerService {
 
     this.isRunning = true;
 
-    // Load all active workflows
     await this.loadAllWorkflows();
 
-    // Start deactivation checker (runs every hour)
     this.deactivationTask = cron.schedule('0 * * * *', async () => {
       logger.info('Checking for expired workflows...');
       await this.checkExpiredWorkflows();
@@ -163,7 +140,6 @@ export class SchedulerService {
     });
     this.deactivationTask.start();
 
-    // Start all scheduled tasks
     this.scheduledWorkflows.forEach((scheduled) => {
       scheduled.task.start();
     });
@@ -173,9 +149,6 @@ export class SchedulerService {
     });
   }
 
-  /**
-   * Stop the scheduler
-   */
   stop(): void {
     if (!this.isRunning) {
       return;
@@ -183,7 +156,6 @@ export class SchedulerService {
 
     this.isRunning = false;
 
-    // Stop all scheduled tasks
     this.scheduledWorkflows.forEach((scheduled) => {
       scheduled.task.stop();
     });
@@ -191,13 +163,10 @@ export class SchedulerService {
     logger.info('Scheduler stopped');
   }
 
-  /**
-   * Get scheduler status
-   */
   getStatus(): {
     isRunning: boolean;
     scheduledCount: number;
-    workflows: Array<{ workflowId: string; schedule: EmailSchedule }>;
+    workflows: Array<{ workflowId: string; schedule: Schedule }>;
   } {
     return {
       isRunning: this.isRunning,
@@ -209,22 +178,16 @@ export class SchedulerService {
     };
   }
 
-  /**
-   * Refresh schedules (reload from database)
-   */
   async refresh(): Promise<void> {
     logger.info('Refreshing scheduler');
     
-    // Stop all current schedules
     this.scheduledWorkflows.forEach((scheduled) => {
       scheduled.task.stop();
     });
     this.scheduledWorkflows.clear();
 
-    // Reload from database
     await this.loadAllWorkflows();
 
-    // Restart if was running
     if (this.isRunning) {
       this.scheduledWorkflows.forEach((scheduled) => {
         scheduled.task.start();
@@ -239,4 +202,3 @@ export class SchedulerService {
 
 export const schedulerService = new SchedulerService();
 export default schedulerService;
-

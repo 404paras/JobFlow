@@ -1,7 +1,3 @@
-// ============================================
-// Shared Types
-// ============================================
-
 export type User = {
   _id: string;
   email: string;
@@ -41,6 +37,59 @@ export type AuthResponse = {
   token: string;
 };
 
+export type ApplicationStatus = 'none' | 'applied' | 'interview' | 'offer' | 'rejected';
+
+export type JobSource = 'linkedin' | 'naukri' | 'remoteok' | 'google' | 'wellfound';
+
+export type Job = {
+  _id: string;
+  uid: string;
+  title: string;
+  company: string;
+  location: string;
+  salary?: string;
+  postedAt: string;
+  description: string;
+  url: string;
+  source: JobSource;
+  workflowId: string;
+  userId: string;
+  isUnread: boolean;
+  viewedAt?: string;
+  isBookmarked: boolean;
+  applicationStatus: ApplicationStatus;
+  appliedAt?: string;
+  matchScore?: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type JobCounts = {
+  total: number;
+  new: number;
+  bookmarked: number;
+  applied: number;
+};
+
+export type JobFilters = {
+  source?: JobSource;
+  isUnread?: boolean;
+  isBookmarked?: boolean;
+  applicationStatus?: ApplicationStatus;
+  search?: string;
+  sortBy?: 'createdAt' | 'postedAt' | 'matchScore' | 'company';
+  sortOrder?: 'asc' | 'desc';
+};
+
+export type JobsConfig = {
+  retentionDays: number;
+  maxJobs: number;
+  notifications: boolean;
+  notifyThreshold: number;
+  defaultSort: 'newest' | 'match' | 'company';
+  autoMarkReadDays: number;
+};
+
 export type Workflow = {
   _id: string;
   workflowId: string;
@@ -49,14 +98,7 @@ export type Workflow = {
   nodes: any[];
   edges: any[];
   nodeCount: number;
-  emailConfig?: {
-    recipients: string;
-    schedule: string;
-    format: string;
-    lastSentAt?: string;
-    sentCount: number;
-    isActive: boolean;
-  };
+  jobsConfig?: JobsConfig;
   isActive: boolean;
   activatedAt?: string;
   deactivatesAt?: string;
@@ -75,7 +117,6 @@ export type Execution = {
   completedAt?: string;
   duration?: number;
   jobsScraped: number;
-  emailsSent: number;
+  jobsSaved: number;
   error?: string;
 };
-

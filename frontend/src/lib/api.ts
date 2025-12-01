@@ -1,8 +1,7 @@
-import type { User, AuthResponse, Workflow, Execution } from './types';
+import type { User, AuthResponse, Workflow, Execution, Job, JobCounts, JobFilters, ApplicationStatus } from './types';
 
-export type { User, AuthResponse, Workflow, Execution };
+export type { User, AuthResponse, Workflow, Execution, Job, JobCounts, JobFilters };
 
-// Use VITE_API_URL from env, fallback to /api for production (Vercel proxy)
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface ApiResponse<T = unknown> {
@@ -59,7 +58,6 @@ class ApiClient {
         headers,
       });
 
-      // Handle non-JSON responses (e.g., server error pages)
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         if (!response.ok) {
@@ -76,11 +74,9 @@ class ApiClient {
 
       return data;
     } catch (error) {
-      // Handle network errors
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Network error: Unable to connect to server. Please check your internet connection.');
       }
-      // Re-throw API errors
       throw error;
     }
   }
@@ -118,6 +114,74 @@ class ApiClient {
 
   logout() {
     this.setToken(null);
+  }
+
+  async getJobs(page = 1, limit = 20, filters?: JobFilters): Promise<PaginatedResponse<Job>> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters) {
+      if (filters.source) params.append('source', filters.source);
+      if (typeof filters.isUnread === 'boolean') params.append('isUnread', filters.isUnread.toString());
+      if (typeof filters.isBookmarked === 'boolean') params.append('isBookmarked', filters.isBookmarked.toString());
+      if (filters.applicationStatus) params.append('applicationStatus', filters.applicationStatus);
+      if (filters.search) params.append('search', filters.search);
+      if (filters.sortBy) params.append('sortBy', filters.sortBy);
+      if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+    }
+
+    const response = await this.request<PaginatedResponse<Job>>(`/jobs/user?${params}`);
+    return response as unknown as PaginatedResponse<Job>;
+  }
+
+  async getJobCounts(): Promise<JobCounts> {
+    const response = await this.request<JobCounts>('/jobs/user/counts');
+    return response.data!;
+  }
+
+  async markJobAsRead(jobId: string): Promise<Job> {
+    const response = await this.request<Job>(`/jobs/user/${jobId}/read`, {
+      method: 'PATCH',
+    });
+    return response.data!;
+  }
+
+  async markAllJobsAsRead(): Promise<{ modifiedCount: number }> {
+    const response = await this.request<{ modifiedCount: number }>('/jobs/user/read-all', {
+      method: 'PATCH',
+    });
+    return response.data!;
+  }
+
+  async updateJobStatus(jobId: string, status: ApplicationStatus): Promise<Job> {
+    const response = await this.request<Job>(`/jobs/user/${jobId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ applicationStatus: status }),
+    });
+    return response.data!;
+  }
+
+  async toggleJobBookmark(jobId: string): Promise<Job> {
+    const response = await this.request<Job>(`/jobs/user/${jobId}/bookmark`, {
+      method: 'PATCH',
+    });
+    return response.data!;
+  }
+
+  async deleteJob(jobId: string): Promise<void> {
+    await this.request(`/jobs/user/${jobId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async calculateMatchScores(skills: string[]): Promise<{ updatedCount: number }> {
+    const response = await this.request<{ updatedCount: number }>('/jobs/user/calculate-match', {
+      method: 'POST',
+      body: JSON.stringify({ skills }),
+    });
+    return response.data!;
   }
 
   async getWorkflows(page = 1, limit = 10): Promise<PaginatedResponse<Workflow>> {
@@ -281,19 +345,6 @@ class ApiClient {
     }
   }
 
-  async getJobMatchScore(jobDescription: string): Promise<{
-    matchScore: number;
-    matchedSkills: string[];
-    totalSkills: number;
-  }> {
-    const response = await this.request<any>('/resume/match', {
-      method: 'POST',
-      body: JSON.stringify({ jobDescription }),
-    });
-    return response.data!;
-  }
-
-  // Feedback
   async submitFeedback(type: string, message: string, rating?: number, email?: string): Promise<void> {
     await this.request('/feedback', {
       method: 'POST',
@@ -301,7 +352,6 @@ class ApiClient {
     });
   }
 
-  // Admin endpoints
   async getAdminStats(): Promise<any> {
     const response = await this.request<any>('/admin/stats');
     return response.data!;
@@ -341,11 +391,6 @@ class ApiClient {
       `/admin/workflows?page=${page}&limit=${limit}`
     );
     return response as unknown as PaginatedResponse<any>;
-  }
-
-  async getAdminWorkflow(id: string): Promise<any> {
-    const response = await this.request<any>(`/admin/workflows/${id}`);
-    return response.data!;
   }
 
   async deleteAdminWorkflow(id: string): Promise<void> {

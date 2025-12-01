@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import { Workflow, IWorkflowDocument } from '../workflows/workflow.model';
 import { Execution, IExecutionDocument } from './execution.model';
+import { JobListing } from '../jobs/job.model';
 import { scraperService } from '../scrapers/scraper.service';
-import { emailService } from '../email/email.service';
 import { logger } from '../../shared/utils/logger';
 import { 
   WorkflowNode, 
@@ -10,13 +10,12 @@ import {
   ScrapedJob, 
   JobSource,
   ExecutionLog,
-  FilterCriteria,
-  NormalizationConfig,
 } from '../../shared/types';
 
 interface ExecutionContext {
   workflowId: string;
   executionId: string;
+  userId: string;
   jobs: ScrapedJob[];
   logs: ExecutionLog[];
 }
@@ -77,10 +76,8 @@ class NormalizeNodeHandler implements NodeHandler {
     const metadata = node.data.metadata || {};
     const beforeCount = context.jobs.length;
     
-    // Check if deduplication is enabled (default: Yes)
     const removeDuplicates = metadata.removeDuplicates !== 'No';
 
-    // Always clean text (trim whitespace, normalize spaces)
     context.jobs = context.jobs.map((job) => ({
       ...job,
       title: job.title?.trim().replace(/\s+/g, ' ') || '',
@@ -89,7 +86,6 @@ class NormalizeNodeHandler implements NodeHandler {
       description: job.description?.trim().replace(/\s+/g, ' ').substring(0, 500) || '',
     }));
 
-    // Remove duplicates based on title + company (case-insensitive)
     if (removeDuplicates) {
       const seen = new Set<string>();
       context.jobs = context.jobs.filter((job) => {
@@ -100,7 +96,6 @@ class NormalizeNodeHandler implements NodeHandler {
       });
     }
 
-    // Sort by posted date (latest first)
     context.jobs.sort((a, b) => {
       const dateA = a.postedAt ? new Date(a.postedAt).getTime() : 0;
       const dateB = b.postedAt ? new Date(b.postedAt).getTime() : 0;
@@ -121,7 +116,6 @@ class FilterNodeHandler implements NodeHandler {
     const metadata = node.data.metadata || {};
     const filters = metadata.filters || [];
 
-    // Parse filters into criteria with support for comma-separated values
     const titleKeywords: string[] = [];
     const companyKeywords: string[] = [];
     const locationKeywords: string[] = [];
@@ -132,14 +126,11 @@ class FilterNodeHandler implements NodeHandler {
 
     for (const filter of filters) {
       if (typeof filter === 'string') {
-        // Parse format: "Type: value1, value2" or "Type:value1,value2"
         const colonIndex = filter.indexOf(':');
         if (colonIndex === -1) continue;
 
         const type = filter.substring(0, colonIndex).trim().toLowerCase();
         const value = filter.substring(colonIndex + 1).trim();
-
-        // Split by comma and clean each value
         const values = value.split(',').map(v => v.trim().toLowerCase()).filter(v => v);
 
         switch (type) {
@@ -175,7 +166,6 @@ class FilterNodeHandler implements NodeHandler {
     const beforeCount = context.jobs.length;
 
     context.jobs = context.jobs.filter((job) => {
-      // Title filter - match ANY keyword (OR logic)
       if (titleKeywords.length > 0) {
         const jobTitle = job.title.toLowerCase();
         if (!titleKeywords.some(kw => jobTitle.includes(kw))) {
@@ -183,7 +173,6 @@ class FilterNodeHandler implements NodeHandler {
         }
       }
 
-      // Company filter - match ANY keyword (OR logic)
       if (companyKeywords.length > 0) {
         const jobCompany = job.company.toLowerCase();
         if (!companyKeywords.some(kw => jobCompany.includes(kw))) {
@@ -191,7 +180,6 @@ class FilterNodeHandler implements NodeHandler {
         }
       }
 
-      // Location filter - match ANY keyword (OR logic)
       if (locationKeywords.length > 0) {
         const jobLocation = job.location.toLowerCase();
         if (!locationKeywords.some(kw => jobLocation.includes(kw))) {
@@ -199,20 +187,17 @@ class FilterNodeHandler implements NodeHandler {
         }
       }
 
-      // Salary filter - minimum salary
       if (minSalary && job.salary) {
         const salary = this.extractSalary(job.salary);
         if (salary < minSalary) return false;
       }
 
-      // Source filter - match ANY source (OR logic)
       if (sourceFilters.length > 0) {
         if (!sourceFilters.includes(job.source)) {
           return false;
         }
       }
 
-      // Experience level filter
       if (experienceLevel && experienceLevel !== 'any') {
         const detectedLevel = this.detectExperienceLevel(job.title + ' ' + (job.description || ''));
         if (detectedLevel !== experienceLevel && detectedLevel !== 'any') {
@@ -220,7 +205,6 @@ class FilterNodeHandler implements NodeHandler {
         }
       }
 
-      // Date posted filter
       if (datePosted && datePosted !== 'any') {
         const jobDate = job.postedAt ? new Date(job.postedAt) : new Date();
         const now = new Date();
@@ -251,7 +235,6 @@ class FilterNodeHandler implements NodeHandler {
   }
 
   private extractSalary(salaryString: string): number {
-    // Handle formats: "$100k", "100K", "$100,000", "100000"
     const cleaned = salaryString.replace(/[$,]/g, '');
     const match = cleaned.match(/(\d+(?:\.\d+)?)\s*k?/i);
     if (!match) return 0;
@@ -280,37 +263,72 @@ class FilterNodeHandler implements NodeHandler {
   }
 }
 
-class DailyEmailNodeHandler implements NodeHandler {
+class JobsOutputNodeHandler implements NodeHandler {
   async execute(node: WorkflowNode, context: ExecutionContext): Promise<void> {
     const metadata = node.data.metadata || {};
-    const recipients = metadata.recipients;
-
-    if (!recipients || recipients === 'Not set') {
-      logger.warn('Email node has no recipients configured', { nodeId: node.id });
-      return;
-    }
+    const maxJobs = metadata.maxJobs || 100;
 
     if (context.jobs.length === 0) {
-      logger.info('No jobs to send in email', { nodeId: node.id });
+      logger.info('No jobs to save', { nodeId: node.id });
       return;
     }
 
-    const result = await emailService.sendJobDigest(recipients, context.jobs, context.workflowId);
+    const jobsToSave = context.jobs.slice(0, maxJobs);
+    
+    const existingUids = await JobListing.find({
+      userId: context.userId,
+      uid: { $in: jobsToSave.map(j => j.uid) }
+    }).distinct('uid');
 
-    if (!result.success) {
-      logger.error('Email sending failed', {
-        recipients,
-        error: result.error,
-        nodeId: node.id,
-      });
-      throw new Error(`Failed to send email: ${result.error || 'Unknown error'}`);
+    const newJobs = jobsToSave.filter(job => !existingUids.includes(job.uid));
+
+    if (newJobs.length === 0) {
+      logger.info('All jobs already exist, skipping', { nodeId: node.id });
+      return;
     }
 
-    logger.info('Email sent', {
-      recipients,
-      jobCount: context.jobs.length,
-      nodeId: node.id,
-    });
+    const jobDocuments = newJobs.map(job => ({
+      uid: job.uid,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      salary: job.salary,
+      postedAt: job.postedAt || new Date(),
+      description: job.description,
+      url: job.url,
+      source: job.source,
+      raw: job.raw,
+      workflowId: context.workflowId,
+      userId: context.userId,
+      normalized: true,
+      filtered: true,
+      isUnread: true,
+      isBookmarked: false,
+      applicationStatus: 'none',
+    }));
+
+    try {
+      const result = await JobListing.insertMany(jobDocuments, { ordered: false });
+      
+      logger.info('Jobs saved to platform', {
+        total: context.jobs.length,
+        saved: result.length,
+        skippedDuplicates: jobsToSave.length - newJobs.length,
+        nodeId: node.id,
+        userId: context.userId,
+      });
+    } catch (error: any) {
+      if (error.code === 11000) {
+        const inserted = error.insertedDocs?.length || 0;
+        logger.info('Jobs saved with some duplicates skipped', {
+          inserted,
+          duplicates: newJobs.length - inserted,
+          nodeId: node.id,
+        });
+      } else {
+        throw error;
+      }
+    }
   }
 }
 
@@ -325,7 +343,7 @@ export class ExecutorService {
       ['job-source', new JobSourceNodeHandler()],
       ['normalize-data', new NormalizeNodeHandler()],
       ['filter', new FilterNodeHandler()],
-      ['daily-email', new DailyEmailNodeHandler()],
+      ['jobs-output', new JobsOutputNodeHandler()],
     ]);
   }
 
@@ -398,7 +416,6 @@ export class ExecutorService {
       throw new Error('This workflow is not active. Please activate it first before running.');
     }
 
-    // Check if workflow has expired
     if (workflow.deactivatesAt && new Date(workflow.deactivatesAt) < new Date()) {
       workflow.isActive = false;
       workflow.activatedAt = undefined;
@@ -406,6 +423,8 @@ export class ExecutorService {
       await workflow.save();
       throw new Error('This workflow has expired. Please reactivate it to run.');
     }
+
+    const workflowUserId = workflow.userId?.toString() || userId || '';
 
     const executionId = `exec_${randomUUID().substring(0, 8)}`;
     const abortController = new AbortController();
@@ -436,6 +455,7 @@ export class ExecutorService {
     const context: ExecutionContext = {
       workflowId,
       executionId,
+      userId: workflowUserId,
       jobs: [],
       logs: [],
     };
@@ -486,7 +506,7 @@ export class ExecutorService {
       execution.duration = Date.now() - execution.startedAt.getTime();
       execution.jobsScraped = context.jobs.length;
       execution.jobsFiltered = context.jobs.length;
-      execution.emailsSent = context.logs.some((l) => l.nodeType === 'daily-email' && l.status === 'completed') ? 1 : 0;
+      execution.jobsSaved = context.jobs.length;
 
       await execution.save();
 
@@ -497,7 +517,7 @@ export class ExecutorService {
       logger.info('Workflow execution completed', {
         workflowId,
         executionId,
-        jobsScraped: execution.jobsScraped,
+        jobsSaved: execution.jobsSaved,
         duration: execution.duration,
       });
 

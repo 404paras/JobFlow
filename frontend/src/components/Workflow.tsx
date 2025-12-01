@@ -41,8 +41,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { CustomNode, JobTriggerNode, JobSourceNode, NormalizeDataNode, FilterNode, DailyEmailNode, type NodeData } from './nodes';
-import { Trash2, Zap, Save, Rocket, ArrowLeft, Pencil, Lock, Plus, RefreshCw, Filter, Mail } from 'lucide-react';
+import { CustomNode, JobTriggerNode, JobSourceNode, NormalizeDataNode, FilterNode, JobsOutputNode, type NodeData } from './nodes';
+import { Trash2, Zap, Save, Rocket, ArrowLeft, Pencil, Lock, Plus, RefreshCw, Filter, Briefcase, Clock, Bell } from 'lucide-react';
 import { FeedbackDialog } from './FeedbackDialog';
 
 type WorkflowNode = Node<NodeData>;
@@ -57,7 +57,7 @@ const nodeTypes = {
   jobSource: JobSourceNode,
   normalizeData: NormalizeDataNode,
   filter: FilterNode,
-  dailyEmail: DailyEmailNode,
+  jobsOutput: JobsOutputNode,
 };
 
 const generateUniqueName = (): string => {
@@ -102,10 +102,11 @@ function Workflow() {
   const [filterSalaryMin, setFilterSalaryMin] = useState<string>('');
   const [filterSource, setFilterSource] = useState<string>('');
   const [showNodeSelection, setShowNodeSelection] = useState<boolean>(false);
-  const [showDailyEmail, setShowDailyEmail] = useState<boolean>(false);
-  const [emailRecipients, setEmailRecipients] = useState<string>('');
-  const [emailSchedule, setEmailSchedule] = useState<string>('daily-9am');
-  const [emailFormat, setEmailFormat] = useState<string>('html');
+  const [showJobsOutput, setShowJobsOutput] = useState<boolean>(false);
+  const [jobsSchedule, setJobsSchedule] = useState<string>('daily-9am');
+  const [jobsMaxJobs, setJobsMaxJobs] = useState<number>(100);
+  const [jobsNotifications, setJobsNotifications] = useState<boolean>(true);
+  const [jobsRetentionDays, setJobsRetentionDays] = useState<number>(30);
   const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; nodeId: string; nodeCount: number } | null>(null);
@@ -227,8 +228,8 @@ function Workflow() {
       } else if (params.nodeId && params.handleType === 'source') {
         const sourceNode = nodes.find(n => n.id === params.nodeId);
         
-        // Daily email is a terminal node - no connections allowed from it
-        if (sourceNode?.data.type === 'daily-email') {
+        // Jobs output is a terminal node - no connections allowed from it
+        if (sourceNode?.data.type === 'jobs-output') {
           return;
         }
         
@@ -415,27 +416,17 @@ function Workflow() {
     setFilterSource('');
   };
 
-  const addOrUpdateDailyEmailNode = () => {
-    if (!emailRecipients.trim()) return;
-
-    const scheduleDisplay = emailSchedule === 'daily-9am' ? 'Daily at 9 AM' : 
-                           emailSchedule === 'daily-6pm' ? 'Daily at 6 PM' : 
-                           emailSchedule === 'weekly' ? 'Weekly' : emailSchedule;
-    const formatDisplay = emailFormat === 'html' ? 'HTML' : 
-                         emailFormat === 'plain' ? 'Plain Text' : 
-                         emailFormat === 'pdf' ? 'PDF Attachment' : emailFormat;
-
+  const addOrUpdateJobsOutputNode = () => {
     const metadata = {
-      recipients: emailRecipients || 'Not set',
-      schedule: scheduleDisplay,
-      format: formatDisplay,
+      schedule: jobsSchedule,
+      maxJobs: jobsMaxJobs,
+      notifications: jobsNotifications,
+      retentionDays: jobsRetentionDays,
     };
 
     if (editingNodeId) {
-      // Update existing node AND sync schedule/format to all other email nodes
       setNodes((nds) => nds.map(node => {
         if (node.id === editingNodeId) {
-          // Update the edited node with all metadata
           return {
             ...node,
             data: {
@@ -444,16 +435,14 @@ function Workflow() {
             },
           };
         }
-        // Sync schedule and format to all other email nodes (keep their recipients)
-        if (node.data.type === 'daily-email') {
+        if (node.data.type === 'jobs-output') {
           return {
             ...node,
             data: {
               ...node.data,
               metadata: {
                 ...node.data.metadata,
-                schedule: scheduleDisplay,
-                format: formatDisplay,
+                schedule: jobsSchedule,
               },
             },
           };
@@ -462,26 +451,25 @@ function Workflow() {
       }));
       setEditingNodeId(null);
     } else {
-      // Create new node
       if (!pendingConnection) return;
 
-      const existingEmailNodes = nodes.filter(n => n.data.type === 'daily-email');
-      const newNodeId = `daily-email-${Date.now()}`;
+      const existingOutputNodes = nodes.filter(n => n.data.type === 'jobs-output');
+      const newNodeId = `jobs-output-${Date.now()}`;
       
       const sourceNode = nodes.find(n => n.id === pendingConnection.source);
       const xOffset = 300;
-      const yOffset = existingEmailNodes.length * 100;
+      const yOffset = existingOutputNodes.length * 100;
 
       const newNode: WorkflowNode = {
         id: newNodeId,
-        type: 'dailyEmail',
+        type: 'jobsOutput',
         position: { 
           x: (sourceNode?.position.x || 250) + xOffset, 
           y: (sourceNode?.position.y || 250) + yOffset 
         },
         data: { 
-          label: 'Daily Email', 
-          type: 'daily-email' as any,
+          label: 'Jobs Output', 
+          type: 'jobs-output' as any,
           metadata,
         },
       };
@@ -500,10 +488,11 @@ function Workflow() {
       setPendingConnection(null);
     }
 
-    setShowDailyEmail(false);
-    setEmailRecipients('');
-    setEmailSchedule('daily-9am');
-    setEmailFormat('html');
+    setShowJobsOutput(false);
+    setJobsSchedule('daily-9am');
+    setJobsMaxJobs(100);
+    setJobsNotifications(true);
+    setJobsRetentionDays(30);
   };
 
   const onNodeClick = useCallback(
@@ -562,23 +551,15 @@ function Workflow() {
           else if (cleaning === 'None') setTextCleaning('none');
         }
         setShowNormalise(true);
-      } else if (node.data.type === 'daily-email') {
+      } else if (node.data.type === 'jobs-output') {
         setEditingNodeId(node.id);
-        // Load existing email data
         if (node.data.metadata) {
-          setEmailRecipients(node.data.metadata.recipients?.replace('Not set', '') || '');
-          
-          const schedule = node.data.metadata.schedule;
-          if (schedule === 'Daily at 9 AM') setEmailSchedule('daily-9am');
-          else if (schedule === 'Daily at 6 PM') setEmailSchedule('daily-6pm');
-          else if (schedule === 'Weekly') setEmailSchedule('weekly');
-          
-          const format = node.data.metadata.format;
-          if (format === 'HTML') setEmailFormat('html');
-          else if (format === 'Plain Text') setEmailFormat('plain');
-          else if (format === 'PDF Attachment') setEmailFormat('pdf');
+          setJobsSchedule(node.data.metadata.schedule || 'daily-9am');
+          setJobsMaxJobs(node.data.metadata.maxJobs || 100);
+          setJobsNotifications(node.data.metadata.notifications !== false);
+          setJobsRetentionDays(node.data.metadata.retentionDays || 30);
         }
-        setShowDailyEmail(true);
+        setShowJobsOutput(true);
       }
     },
     [isReadOnly],
@@ -667,17 +648,14 @@ function Workflow() {
   const saveWorkflow = async (status: 'draft' | 'published') => {
     setIsSaving(true);
     
-    // Get email config from daily-email node if exists
-    const emailNode = nodes.find(n => n.data.type === 'daily-email');
-    const emailConfig = emailNode?.data.metadata ? {
-      recipients: emailNode.data.metadata.recipients || '',
-      schedule: emailNode.data.metadata.schedule === 'Daily at 9 AM' ? 'daily-9am' : 
-                emailNode.data.metadata.schedule === 'Daily at 6 PM' ? 'daily-6pm' : 
-                emailNode.data.metadata.schedule === 'Weekly' ? 'weekly' : 'daily-9am',
-      format: emailNode.data.metadata.format === 'HTML' ? 'html' : 
-              emailNode.data.metadata.format === 'Plain Text' ? 'plain' : 'html',
-      sentCount: 0,
-      isActive: status === 'published',
+    const jobsOutputNode = nodes.find(n => n.data.type === 'jobs-output');
+    const jobsConfig = jobsOutputNode?.data.metadata ? {
+      retentionDays: jobsOutputNode.data.metadata.retentionDays || 30,
+      maxJobs: jobsOutputNode.data.metadata.maxJobs || 100,
+      notifications: jobsOutputNode.data.metadata.notifications !== false,
+      notifyThreshold: 1,
+      defaultSort: 'newest' as const,
+      autoMarkReadDays: 0,
     } : undefined;
 
     const workflowData = {
@@ -686,7 +664,7 @@ function Workflow() {
       status,
       nodes,
       edges,
-      emailConfig,
+      jobsConfig,
     };
 
     try {
@@ -893,30 +871,30 @@ function Workflow() {
             <Button 
               onClick={() => {
                 setShowNodeSelection(false);
-                setShowDailyEmail(true);
+                setShowJobsOutput(true);
               }}
-              className="w-full h-14 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
+              className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-medium shadow-lg hover:shadow-xl transition-all justify-start px-6"
             >
-              <Mail size={20} className="mr-4" />
+              <Briefcase size={20} className="mr-4" />
               <div className="text-left">
-                <div className="font-semibold">New Email Node</div>
-                <div className="text-xs opacity-90">Create new email destination</div>
+                <div className="font-semibold">Jobs Output</div>
+                <div className="text-xs opacity-90">Save jobs to My Jobs page</div>
               </div>
             </Button>
 
-            {/* Show existing email nodes */}
-            {nodes.filter(n => n.data.type === 'daily-email').length > 0 && (
+            {/* Show existing jobs output nodes */}
+            {nodes.filter(n => n.data.type === 'jobs-output').length > 0 && (
               <>
                 <div className="text-sm font-medium text-gray-500 pt-2">Or connect to existing:</div>
-                {nodes.filter(n => n.data.type === 'daily-email').map((emailNode) => (
+                {nodes.filter(n => n.data.type === 'jobs-output').map((outputNode) => (
                   <Button 
-                    key={emailNode.id}
+                    key={outputNode.id}
                     onClick={() => {
                       if (pendingConnection) {
                         const newEdge: WorkflowEdge = {
-                          id: `edge-${pendingConnection.source}-${emailNode.id}`,
+                          id: `edge-${pendingConnection.source}-${outputNode.id}`,
                           source: pendingConnection.source,
-                          target: emailNode.id,
+                          target: outputNode.id,
                           sourceHandle: pendingConnection.sourceHandle || null,
                           targetHandle: pendingConnection.targetHandle || null,
                         };
@@ -926,12 +904,15 @@ function Workflow() {
                       setShowNodeSelection(false);
                     }}
                     variant="outline"
-                    className="w-full h-12 border-amber-200 hover:bg-amber-50 hover:border-amber-300 justify-start px-6"
+                    className="w-full h-12 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 justify-start px-6"
                   >
-                    <Mail size={18} className="mr-3 text-amber-500" />
+                    <Briefcase size={18} className="mr-3 text-emerald-500" />
                     <div className="text-left">
-                      <div className="font-medium text-gray-700">{emailNode.data.metadata?.recipients || 'Email Node'}</div>
-                      <div className="text-xs text-gray-500">{emailNode.data.metadata?.schedule || 'Daily'}</div>
+                      <div className="font-medium text-gray-700">Jobs Output</div>
+                      <div className="text-xs text-gray-500">
+                        {outputNode.data.metadata?.schedule === 'daily-9am' ? 'Daily at 9 AM' : 
+                         outputNode.data.metadata?.schedule === 'daily-6pm' ? 'Daily at 6 PM' : 'Weekly'}
+                      </div>
                     </div>
                   </Button>
                 ))}
@@ -1200,29 +1181,22 @@ function Workflow() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={showDailyEmail} onOpenChange={setShowDailyEmail}>
+      <Sheet open={showJobsOutput} onOpenChange={setShowJobsOutput}>
         <SheetContent className="sm:max-w-md">
           <SheetHeader>
-            <SheetTitle className="text-2xl font-semibold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">{editingNodeId ? 'Edit Daily Email' : 'Configure Daily Email'}</SheetTitle>
-            <SheetDescription className="text-base">Set up automated email delivery of job listings</SheetDescription>
+            <SheetTitle className="text-2xl font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+              {editingNodeId ? 'Edit Jobs Output' : 'Configure Jobs Output'}
+            </SheetTitle>
+            <SheetDescription className="text-base">Jobs will be saved to your My Jobs page</SheetDescription>
           </SheetHeader>
           <div className="mt-8 space-y-6">
             <div className="space-y-5">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Email Recipients <span className="text-red-500">*</span></label>
-                <input
-                  type="email"
-                  value={emailRecipients}
-                  onChange={(e) => setEmailRecipients(e.target.value)}
-                  placeholder="user@example.com"
-                  required
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Schedule</label>
-                <Select value={emailSchedule} onValueChange={setEmailSchedule}>
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Clock size={16} className="text-emerald-600" />
+                  Schedule
+                </label>
+                <Select value={jobsSchedule} onValueChange={setJobsSchedule}>
                   <SelectTrigger className="w-full h-11">
                     <SelectValue />
                   </SelectTrigger>
@@ -1235,26 +1209,59 @@ function Workflow() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Email Format</label>
-                <Select value={emailFormat} onValueChange={setEmailFormat}>
+                <label className="text-sm font-semibold text-gray-700">Max Jobs to Store</label>
+                <Select value={jobsMaxJobs.toString()} onValueChange={(v) => setJobsMaxJobs(parseInt(v))}>
                   <SelectTrigger className="w-full h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="html">HTML Email</SelectItem>
-                    <SelectItem value="plain">Plain Text</SelectItem>
-                    <SelectItem value="pdf">PDF Attachment</SelectItem>
+                    <SelectItem value="50">50 jobs</SelectItem>
+                    <SelectItem value="100">100 jobs</SelectItem>
+                    <SelectItem value="200">200 jobs</SelectItem>
+                    <SelectItem value="-1">Unlimited</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">Retention Period</label>
+                <Select value={jobsRetentionDays.toString()} onValueChange={(v) => setJobsRetentionDays(parseInt(v))}>
+                  <SelectTrigger className="w-full h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">7 days</SelectItem>
+                    <SelectItem value="14">14 days</SelectItem>
+                    <SelectItem value="30">30 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <Bell size={16} className="text-emerald-600" />
+                  <span className="text-sm font-medium text-gray-700">Browser Notifications</span>
+                </div>
+                <button
+                  onClick={() => setJobsNotifications(!jobsNotifications)}
+                  className={`w-12 h-6 rounded-full transition-colors ${
+                    jobsNotifications ? 'bg-emerald-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
+                      jobsNotifications ? 'translate-x-6' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
 
             <Button 
-              onClick={addOrUpdateDailyEmailNode}
-              disabled={!emailRecipients.trim()}
-              className="w-full h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={addOrUpdateJobsOutputNode}
+              className="w-full h-11 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-medium shadow-lg hover:shadow-xl transition-all"
             >
-              {editingNodeId ? 'Update Email Node' : 'Add Email Node'}
+              {editingNodeId ? 'Update Jobs Output' : 'Add Jobs Output'}
             </Button>
           </div>
         </SheetContent>

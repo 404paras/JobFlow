@@ -1,9 +1,5 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
-import { WorkflowStatus, WorkflowNode, WorkflowEdge, EmailConfig } from '../../shared/types';
-
-// ============================================
-// Interface
-// ============================================
+import { WorkflowStatus, WorkflowNode, WorkflowEdge, JobsConfig } from '../../shared/types';
 
 export interface IWorkflow {
   workflowId: string;
@@ -14,7 +10,7 @@ export interface IWorkflow {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   nodeCount: number;
-  emailConfig?: EmailConfig;
+  jobsConfig?: JobsConfig;
   isActive: boolean;
   activatedAt?: Date;
   deactivatesAt?: Date;
@@ -25,10 +21,6 @@ export interface IWorkflow {
 }
 
 export interface IWorkflowDocument extends IWorkflow, Document {}
-
-// ============================================
-// Schema
-// ============================================
 
 const WorkflowNodeSchema = new Schema({
   id: { type: String, required: true },
@@ -54,22 +46,17 @@ const WorkflowEdgeSchema = new Schema({
   targetHandle: { type: String },
 }, { _id: false });
 
-const EmailConfigSchema = new Schema({
-  recipients: { type: String, required: true },
-  schedule: { 
+const JobsConfigSchema = new Schema({
+  retentionDays: { type: Number, default: 30, min: 7, max: 90 },
+  maxJobs: { type: Number, default: 100, min: -1, max: 500 },
+  notifications: { type: Boolean, default: true },
+  notifyThreshold: { type: Number, default: 1, min: 1, max: 50 },
+  defaultSort: { 
     type: String, 
-    enum: ['daily-9am', 'daily-6pm', 'weekly'],
-    default: 'daily-9am',
+    enum: ['newest', 'match', 'company'],
+    default: 'newest',
   },
-  format: { 
-    type: String, 
-    enum: ['html', 'plain', 'pdf'],
-    default: 'html',
-  },
-  lastSentAt: { type: Date },
-  sentCount: { type: Number, default: 0 },
-  isActive: { type: Boolean, default: true },
-  pausedAt: { type: Date },
+  autoMarkReadDays: { type: Number, default: 0, min: 0, max: 7 },
 }, { _id: false });
 
 const WorkflowSchema = new Schema<IWorkflowDocument>(
@@ -113,8 +100,16 @@ const WorkflowSchema = new Schema<IWorkflowDocument>(
       type: Number,
       default: 0,
     },
-    emailConfig: {
-      type: EmailConfigSchema,
+    jobsConfig: {
+      type: JobsConfigSchema,
+      default: () => ({
+        retentionDays: 30,
+        maxJobs: 100,
+        notifications: true,
+        notifyThreshold: 1,
+        defaultSort: 'newest',
+        autoMarkReadDays: 0,
+      }),
     },
     isActive: {
       type: Boolean,
@@ -148,27 +143,14 @@ const WorkflowSchema = new Schema<IWorkflowDocument>(
   }
 );
 
-// ============================================
-// Indexes
-// ============================================
-
 WorkflowSchema.index({ userId: 1, status: 1 });
-WorkflowSchema.index({ status: 1, 'emailConfig.isActive': 1 });
 WorkflowSchema.index({ userId: 1, isActive: 1 });
 WorkflowSchema.index({ isActive: 1, deactivatesAt: 1 });
 WorkflowSchema.index({ createdAt: -1 });
 
-// ============================================
-// Middleware
-// ============================================
-
 WorkflowSchema.pre('save', function () {
   this.nodeCount = this.nodes.length;
 });
-
-// ============================================
-// Static Methods
-// ============================================
 
 WorkflowSchema.statics.findByUserId = function (userId: string) {
   return this.find({ userId }).sort({ updatedAt: -1 });
@@ -178,11 +160,10 @@ WorkflowSchema.statics.findPublished = function () {
   return this.find({ status: 'published' });
 };
 
-WorkflowSchema.statics.findActiveEmailWorkflows = function () {
+WorkflowSchema.statics.findActiveWorkflows = function () {
   return this.find({
     status: 'published',
     isActive: true,
-    'emailConfig.isActive': true,
   });
 };
 
@@ -199,14 +180,9 @@ WorkflowSchema.statics.deactivateExpiredWorkflows = async function () {
   return result.modifiedCount;
 };
 
-// ============================================
-// Export
-// ============================================
-
 export const Workflow: Model<IWorkflowDocument> = mongoose.model<IWorkflowDocument>(
   'Workflow',
   WorkflowSchema
 );
 
 export default Workflow;
-

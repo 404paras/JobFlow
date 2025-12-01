@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 interface Config {
@@ -12,16 +11,6 @@ interface Config {
   };
   frontend: {
     url: string;
-  };
-  email: {
-    provider: 'smtp' | 'resend';
-    host: string;
-    port: number;
-    secure: boolean;
-    user: string;
-    pass: string;
-    from: string;
-    resendApiKey: string;
   };
   scraper: {
     timeout: number;
@@ -35,7 +24,6 @@ interface Config {
 
 const requiredEnvVars = ['MONGODB_URI'];
 
-// Validate required environment variables
 function validateEnv(): void {
   const missing = requiredEnvVars.filter((key) => !process.env[key]);
   if (missing.length > 0) {
@@ -43,7 +31,6 @@ function validateEnv(): void {
   }
 }
 
-// Only validate in non-test environments
 if (process.env.NODE_ENV !== 'test') {
   validateEnv();
 }
@@ -60,17 +47,6 @@ export const config: Config = {
     url: process.env.FRONTEND_URL || 'http://localhost:5173',
   },
   
-  email: {
-    provider: (process.env.EMAIL_PROVIDER || 'resend') as 'smtp' | 'resend',
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '465', 10),
-    secure: process.env.SMTP_SECURE !== 'false',
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
-    from: process.env.EMAIL_FROM || 'JobFlow <onboarding@resend.dev>',
-    resendApiKey: process.env.RESEND_API_KEY || '',
-  },
-  
   scraper: {
     timeout: parseInt(process.env.SCRAPER_TIMEOUT || '30000', 10),
     retryAttempts: parseInt(process.env.SCRAPER_RETRY_ATTEMPTS || '3', 10),
@@ -83,4 +59,3 @@ export const config: Config = {
 };
 
 export default config;
-

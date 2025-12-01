@@ -1,7 +1,6 @@
 import { createApp } from './app';
 import { config } from './config';
 import { connectDatabase, disconnectDatabase } from './config/database';
-import { closeEmailTransporter } from './config/email';
 import { schedulerService } from './modules/scheduler/scheduler.service';
 import { logger } from './shared/utils/logger';
 
@@ -11,9 +10,6 @@ async function gracefulShutdown(signal: string): Promise<void> {
   try {
     schedulerService.stop();
     logger.info('Scheduler stopped');
-
-    await closeEmailTransporter();
-    logger.info('Email transporter closed');
 
     await disconnectDatabase();
     logger.info('Database disconnected');
