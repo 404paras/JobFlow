@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./contexts/AuthContext"
+import { ThemeProvider } from "./components/ThemeProvider"
 import { Toaster } from "./components/ui/sonner"
 import { ErrorBoundary } from "./components/ErrorBoundary"
 import Home from "./pages/Home"
@@ -9,6 +10,8 @@ import WorkflowList from "./pages/WorkflowList"
 import Workflow from "./components/Workflow"
 import AdminDashboard from "./pages/AdminDashboard"
 import MyJobs from "./pages/MyJobs"
+import SkillInsights from "./pages/SkillInsights"
+import MarketTrends from "./pages/MarketTrends"
 
 // Protected Route Component - redirects to login if not authenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -16,8 +19,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-200 dark:border-indigo-800 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -35,8 +38,8 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-200 dark:border-indigo-800 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin" />
       </div>
     );
   }
@@ -87,6 +90,16 @@ function AppRoutes() {
           <MyJobs />
         </ProtectedRoute>
       } />
+      <Route path="/skills" element={
+        <ProtectedRoute>
+          <SkillInsights />
+        </ProtectedRoute>
+      } />
+      <Route path="/trends" element={
+        <ProtectedRoute>
+          <MarketTrends />
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 }
@@ -94,12 +107,14 @@ function AppRoutes() {
 function App() {
   return (
     <ErrorBoundary>
-      <Router>
-        <AuthProvider>
-          <AppRoutes />
-          <Toaster position="top-right" richColors closeButton />
-        </AuthProvider>
-      </Router>
+      <ThemeProvider>
+        <Router>
+          <AuthProvider>
+            <AppRoutes />
+            <Toaster position="top-right" richColors closeButton />
+          </AuthProvider>
+        </Router>
+      </ThemeProvider>
     </ErrorBoundary>
   )
 }

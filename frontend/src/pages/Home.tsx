@@ -2,66 +2,64 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { FeedbackDialog } from '../components/FeedbackDialog';
-import { LogOut, ArrowRight } from 'lucide-react';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { LogOut, ArrowRight, Brain, Zap, Target, TrendingUp, Briefcase, Sparkles } from 'lucide-react';
 
 export default function Home() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
       {/* Decorative elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full opacity-40 blur-3xl" />
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200 to-cyan-200 rounded-full opacity-40 blur-3xl" />
-        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-gradient-to-br from-amber-200 to-orange-200 rounded-full opacity-30 blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-300 to-purple-300 dark:from-indigo-900 dark:to-purple-900 rounded-full opacity-40 blur-3xl animate-float" />
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-gradient-to-br from-blue-300 to-cyan-300 dark:from-blue-900 dark:to-cyan-900 rounded-full opacity-40 blur-3xl animate-float" style={{ animationDelay: '-2s' }} />
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-gradient-to-br from-purple-300 to-pink-300 dark:from-purple-900 dark:to-pink-900 rounded-full opacity-30 blur-3xl animate-float" style={{ animationDelay: '-4s' }} />
       </div>
 
       {/* Header */}
-      <header className="relative z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl sticky top-0 shadow-sm">
+      <header className="relative z-50 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl sticky top-0 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to={isAuthenticated ? "/workflows" : "/"} className="flex items-center gap-3 group">
-            <img src="/logo.svg" alt="JobFlow" className="w-10 h-10 shadow-lg shadow-purple-200 rounded-xl group-hover:scale-105 transition-transform" />
-            <h1 className="text-xl font-bold text-gray-900">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 group-hover:scale-105 transition-transform">
+              <Briefcase size={22} className="text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
               JobFlow
             </h1>
-            <span className="px-2 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-md shadow-sm">
-              BETA
+            <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold rounded-md shadow-sm">
+              AI
             </span>
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Anonymous Feedback Dialog */}
+            <ThemeToggle />
             <FeedbackDialog />
 
             {isAuthenticated ? (
               <>
-                <span className="text-gray-600 text-sm hidden md:block">
-                  Welcome, {user?.name}
-                </span>
                 <Link to="/workflows">
-                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 transition-all px-5">
-                    My Workflows
+                  <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 transition-all px-5">
+                    Dashboard
                     <ArrowRight size={16} className="ml-2" />
                   </Button>
                 </Link>
                 <Button 
                   onClick={logout}
                   variant="outline" 
-                  className="border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 font-medium rounded-xl transition-all"
+                  className="border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium rounded-xl transition-all"
                 >
                   <LogOut size={16} className="mr-2" />
                   Logout
                 </Button>
               </>
             ) : (
-              <>
-                <Link to="/login">
-                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 transition-all px-6">
-                    Sign In
-                    <ArrowRight size={16} className="ml-2" />
-                  </Button>
-                </Link>
-              </>
+              <Link to="/login">
+                <Button className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 transition-all px-6">
+                  Sign In
+                  <ArrowRight size={16} className="ml-2" />
+                </Button>
+              </Link>
             )}
           </div>
         </div>
@@ -71,108 +69,146 @@ export default function Home() {
       <main className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-32">
         <div className="text-center space-y-8">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-full">
+          <div className="inline-flex items-center gap-2 px-4 py-2 glass-card rounded-full">
+            <Brain size={16} className="text-purple-600 dark:text-purple-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">AI-Powered Job Search Platform</span>
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-sm font-medium text-indigo-700">Automated Job Search Platform</span>
           </div>
 
           {/* Title */}
           <div className="space-y-6">
-            <h2 className="text-5xl md:text-7xl font-bold text-gray-900 leading-tight tracking-tight">
-              Automate Your
-              <span className="block bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Job Search Workflow
+            <h2 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight">
+              Your AI-Powered
+              <span className="block bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient">
+                Job Search Assistant
               </span>
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Build powerful automation pipelines to aggregate, filter, and get daily email digests 
-              of job listings from LinkedIn, Google Jobs, RemoteOK, Wellfound, and Naukri.
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+              Automate job hunting with smart workflows, AI-powered resume matching, 
+              skill gap analysis, and real-time market insights—all running locally in your browser.
             </p>
           </div>
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <Link to={isAuthenticated ? "/workflow/new" : "/register"}>
-              <Button className="h-14 px-8 text-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-xl shadow-indigo-200 transition-all rounded-xl">
-                Create Your Workflow
-                <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
+              <Button className="h-14 px-8 text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-xl shadow-indigo-300/50 dark:shadow-indigo-900/30 transition-all rounded-xl glow">
+                <Sparkles size={20} className="mr-2" />
+                Get Started
               </Button>
             </Link>
-            <Link to="/workflows">
-              <Button variant="outline" className="h-14 px-8 text-lg font-semibold border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl">
-                View Workflows
-              </Button>
-            </Link>
+          </div>
+
+          {/* Stats */}
+          <div className="flex items-center justify-center gap-8 pt-8">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900 dark:text-white">5+</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Job Platforms</div>
+            </div>
+            <div className="w-px h-10 bg-gray-200 dark:bg-gray-700" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900 dark:text-white">AI</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Powered Matching</div>
+            </div>
+            <div className="w-px h-10 bg-gray-200 dark:bg-gray-700" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900 dark:text-white">24/7</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Auto Scraping</div>
+            </div>
           </div>
         </div>
 
         {/* Features */}
-        <div className="grid md:grid-cols-3 gap-6 mt-32">
-          <div className="group p-8 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-gray-200 transition-all duration-300">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-blue-200">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
+        <div className="grid md:grid-cols-4 gap-6 mt-32">
+          <div className="group p-6 glass-card rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg glow">
+              <Zap size={24} className="text-white" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Multi-Platform Scraping</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Connect to LinkedIn, Google Jobs, RemoteOK, Wellfound & Naukri. Aggregate from 5+ sources in one workflow.
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Visual Workflows</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+              Build automation pipelines with a drag-and-drop workflow editor like n8n.
             </p>
           </div>
 
-          <div className="group p-8 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-gray-200 transition-all duration-300">
-            <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-violet-200">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
+          <div className="group p-6 glass-card rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg glow-purple">
+              <Brain size={24} className="text-white" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Smart Filtering</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Normalize and filter job listings by title, company, location, salary, and more.
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">AI Resume Match</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+              Get AI-powered job-resume matching scores running 100% in your browser.
             </p>
           </div>
 
-          <div className="group p-8 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-gray-200 transition-all duration-300">
-            <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-amber-200">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
+          <div className="group p-6 glass-card rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+              <Target size={24} className="text-white" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Daily Email Digests</h3>
-            <p className="text-gray-600 leading-relaxed">
-              Get scheduled email notifications with curated job listings delivered to your inbox.
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Skill Gap Analysis</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+              Identify missing skills and get recommendations to improve your profile.
+            </p>
+          </div>
+
+          <div className="group p-6 glass-card rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+              <TrendingUp size={24} className="text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Market Trends</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+              Real-time insights on skill demand, salaries, and top hiring companies.
             </p>
           </div>
         </div>
 
         {/* How it Works */}
         <div className="mt-32">
-          <h3 className="text-3xl font-bold text-center text-gray-900 mb-16">How It Works</h3>
+          <h3 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-4">How It Works</h3>
+          <p className="text-center text-gray-600 dark:text-gray-400 mb-16 max-w-2xl mx-auto">
+            Create automated workflows to collect jobs, then use AI to find the perfect matches for your skills.
+          </p>
           <div className="grid md:grid-cols-4 gap-8">
             {[
-              { step: 1, title: 'Set Trigger', desc: 'Start with a job trigger node', color: 'from-indigo-500 to-purple-500', shadow: 'shadow-indigo-200' },
-              { step: 2, title: 'Add Sources', desc: 'Connect job platforms', color: 'from-blue-500 to-cyan-500', shadow: 'shadow-blue-200' },
-              { step: 3, title: 'Filter & Clean', desc: 'Normalize and filter data', color: 'from-orange-500 to-red-500', shadow: 'shadow-orange-200' },
-              { step: 4, title: 'Get Notified', desc: 'Receive daily email updates', color: 'from-amber-500 to-orange-500', shadow: 'shadow-amber-200' },
+              { step: 1, title: 'Build Workflow', desc: 'Create your automation pipeline', icon: Zap, color: 'from-indigo-500 to-purple-500' },
+              { step: 2, title: 'Collect Jobs', desc: 'Aggregate from 5+ platforms', icon: Briefcase, color: 'from-blue-500 to-cyan-500' },
+              { step: 3, title: 'Upload Resume', desc: 'Let AI extract your skills', icon: Brain, color: 'from-purple-500 to-pink-500' },
+              { step: 4, title: 'Get Insights', desc: 'Match scores & market trends', icon: Target, color: 'from-emerald-500 to-teal-500' },
             ].map((item) => (
               <div key={item.step} className="text-center group">
-                <div className={`w-16 h-16 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold shadow-lg ${item.shadow} group-hover:scale-110 transition-transform`}>
-                  {item.step}
+                <div className={`w-16 h-16 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
+                  <item.icon size={28} className="text-white" />
                 </div>
-                <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
-                <p className="text-sm text-gray-600">{item.desc}</p>
+                <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">STEP {item.step}</div>
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-2">{item.title}</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="mt-32 text-center">
+          <div className="inline-block glass-card rounded-3xl p-12">
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              Ready to Supercharge Your Job Search?
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-lg mx-auto">
+              Join JobFlow today and let AI help you find the perfect job opportunities.
+            </p>
+            <Link to={isAuthenticated ? "/workflows" : "/register"}>
+              <Button className="h-14 px-10 text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-xl shadow-indigo-300/50 dark:shadow-indigo-900/30 transition-all rounded-xl">
+                Get Started Now
+                <ArrowRight size={20} className="ml-2" />
+              </Button>
+            </Link>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-gray-100 bg-white/50 backdrop-blur-sm py-8">
-        <div className="max-w-7xl mx-auto px-6 text-center text-gray-500 text-sm">
-          © 2025 JobFlow. Built with ❤️ by <a href="https://github.com/404paras" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-700 font-medium">Paras Garg</a>
+      <footer className="relative z-10 border-t border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm py-8">
+        <div className="max-w-7xl mx-auto px-6 text-center text-gray-500 dark:text-gray-400 text-sm">
+          © 2025 JobFlow. Built with ❤️ by <a href="https://github.com/404paras" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">Paras Garg</a>
         </div>
       </footer>
     </div>

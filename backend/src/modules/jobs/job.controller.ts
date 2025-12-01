@@ -194,6 +194,16 @@ export class JobController {
 
     res.json(response);
   });
+
+  getAnalytics = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const userId = req.userId!;
+    const analytics = await jobService.getAnalytics(userId);
+
+    res.json({
+      success: true,
+      data: analytics,
+    });
+  });
 }
 
 export const jobController = new JobController();

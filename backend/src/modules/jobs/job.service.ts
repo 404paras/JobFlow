@@ -578,6 +578,72 @@ export class JobService {
     logger.info('Jobs deleted for workflow', { workflowId, count: result.deletedCount });
     return { deletedCount: result.deletedCount };
   }
+
+  async getAnalytics(userId: string): Promise<{
+    topSkills: { skill: string; count: number }[];
+    topCompanies: { company: string; count: number }[];
+    locationDistribution: { location: string; count: number }[];
+    sourceDistribution: { source: string; count: number }[];
+    totalJobs: number;
+    remotePercentage: number;
+  }> {
+    const jobs = await JobListing.find({ userId }).lean();
+    
+    const companyCounts = new Map<string, number>();
+    const locationCounts = new Map<string, number>();
+    const sourceCounts = new Map<string, number>();
+    
+    for (const job of jobs) {
+      companyCounts.set(job.company, (companyCounts.get(job.company) || 0) + 1);
+      
+      const normalizedLocation = this.normalizeLocation(job.location);
+      locationCounts.set(normalizedLocation, (locationCounts.get(normalizedLocation) || 0) + 1);
+      
+      sourceCounts.set(job.source, (sourceCounts.get(job.source) || 0) + 1);
+    }
+
+    const topCompanies = Array.from(companyCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([company, count]) => ({ company, count }));
+
+    const locationDistribution = Array.from(locationCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([location, count]) => ({ location, count }));
+
+    const sourceDistribution = Array.from(sourceCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source, count }));
+
+    const remoteJobs = locationCounts.get('Remote') || 0;
+    const remotePercentage = jobs.length > 0 ? Math.round((remoteJobs / jobs.length) * 100) : 0;
+
+    return {
+      topSkills: [],
+      topCompanies,
+      locationDistribution,
+      sourceDistribution,
+      totalJobs: jobs.length,
+      remotePercentage,
+    };
+  }
+
+  private normalizeLocation(location: string): string {
+    const lower = location.toLowerCase();
+    if (lower.includes('remote')) return 'Remote';
+    if (lower.includes('bangalore') || lower.includes('bengaluru')) return 'Bangalore';
+    if (lower.includes('mumbai')) return 'Mumbai';
+    if (lower.includes('delhi') || lower.includes('gurgaon') || lower.includes('noida')) return 'Delhi NCR';
+    if (lower.includes('hyderabad')) return 'Hyderabad';
+    if (lower.includes('pune')) return 'Pune';
+    if (lower.includes('chennai')) return 'Chennai';
+    if (lower.includes('kolkata')) return 'Kolkata';
+    if (lower.includes('usa') || lower.includes('united states')) return 'USA';
+    if (lower.includes('uk') || lower.includes('london')) return 'UK';
+    if (lower.includes('europe') || lower.includes('germany') || lower.includes('berlin')) return 'Europe';
+    return location.length > 20 ? location.slice(0, 20) + '...' : location;
+  }
 }
 
 export const jobService = new JobService();

@@ -3,7 +3,7 @@ import mongoose, { Document, Schema, Model } from 'mongoose';
 export interface IResume {
   userId: string;
   fileName: string;
-  fileType: 'pdf' | 'docx' | 'txt';
+  fileType: 'pdf' | 'docx' | 'txt' | 'latex' | 'markdown';
   fileSize: number;
   rawText: string;
   skills: string[];
@@ -38,7 +38,7 @@ const ResumeSchema = new Schema<IResumeDocument>(
     },
     fileType: {
       type: String,
-      enum: ['pdf', 'docx', 'txt'],
+      enum: ['pdf', 'docx', 'txt', 'latex', 'markdown'],
       required: true,
     },
     fileSize: {

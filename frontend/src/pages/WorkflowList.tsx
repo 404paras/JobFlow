@@ -14,9 +14,10 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import type { Workflow } from '../lib/types';
 import { api } from '../lib/api';
-import { Trash2, Play, Square, LogOut, Plus, FileText, AlertCircle, Clock, Info, Zap, ZapOff, Shield, Briefcase } from 'lucide-react';
+import { Trash2, Play, Square, LogOut, Plus, FileText, AlertCircle, Clock, Info, Zap, ZapOff, Shield, Briefcase, Brain, TrendingUp } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialog';
 import { ResumeUpload } from '../components/ResumeUpload';
+import { ThemeToggle } from '../components/ThemeToggle';
 import { toast } from 'sonner';
 import { FEATURES } from '../config/features';
 
@@ -251,7 +252,7 @@ export default function WorkflowList() {
   const activeWorkflow = workflows.find(w => w.isActive);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
       {/* Decorative elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full opacity-40 blur-3xl" />
@@ -259,7 +260,7 @@ export default function WorkflowList() {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 border-b border-gray-200 bg-white/80 backdrop-blur-xl sticky top-0 shadow-sm">
+      <header className="relative z-10 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl sticky top-0 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/workflows" className="flex items-center gap-3 group">
             <img src="/logo.svg" alt="JobFlow" className="w-10 h-10 shadow-lg shadow-purple-200 rounded-xl group-hover:scale-105 transition-transform" />
@@ -275,22 +276,47 @@ export default function WorkflowList() {
             {isAuthenticated && FEATURES.RESUME_UPLOAD && <ResumeUpload />}
             
             {isAuthenticated && (
-              <Link to="/jobs">
-                <Button 
-                  variant="outline" 
-                  className="relative border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 font-medium rounded-xl transition-all"
-                >
-                  <Briefcase size={16} className="mr-2" />
-                  My Jobs
-                  {newJobsCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {newJobsCount > 99 ? '99+' : newJobsCount}
-                    </span>
-                  )}
-                </Button>
-              </Link>
+              <>
+                <Link to="/jobs">
+                  <Button 
+                    variant="outline" 
+                    className="relative border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 font-medium rounded-xl transition-all"
+                  >
+                    <Briefcase size={16} className="mr-2" />
+                    My Jobs
+                    {newJobsCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {newJobsCount > 99 ? '99+' : newJobsCount}
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+{FEATURES.SKILLS_INSIGHTS && (
+                  <Link to="/skills">
+                    <Button 
+                      variant="outline" 
+                      className="border border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 font-medium rounded-xl transition-all"
+                    >
+                      <Brain size={16} className="mr-2" />
+                      Skills
+                    </Button>
+                  </Link>
+                )}
+                {FEATURES.MARKET_TRENDS && (
+                  <Link to="/trends">
+                    <Button 
+                      variant="outline" 
+                      className="border border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 font-medium rounded-xl transition-all"
+                    >
+                      <TrendingUp size={16} className="mr-2" />
+                      Trends
+                    </Button>
+                  </Link>
+                )}
+              </>
             )}
 
+            <ThemeToggle />
             <FeedbackDialog />
 
             {isAuthenticated && (

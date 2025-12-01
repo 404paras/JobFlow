@@ -56,7 +56,7 @@ router.post(
       const resume = await resumeService.uploadResume(
         userId,
         fileName,
-        fileType as 'pdf' | 'docx' | 'txt',
+        fileType as 'pdf' | 'docx' | 'txt' | 'latex' | 'markdown',
         textContent.length,
         textContent
       );

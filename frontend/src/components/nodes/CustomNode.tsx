@@ -2,8 +2,8 @@ import { Handle, Position } from '@xyflow/react';
 
 export type NodeData = {
   label: string;
-  type: 'trigger' | 'job-source' | 'normalize-data' | 'filter' | 'daily-email';
-  jobType?: 'linkedin' | 'remoteok' | 'naukri' | 'google' | 'wellfound';
+  type: 'trigger' | 'job-source' | 'normalize-data' | 'filter' | 'jobs-output';
+  jobType?: 'linkedin' | 'remoteok' | 'naukri' | 'arbeitnow' | 'jobicy';
   filterCount?: number;
   metadata?: {
     platform?: string;
@@ -14,9 +14,11 @@ export type NodeData = {
     removeDuplicates?: string;
     textCleaning?: string;
     filters?: string[];
-    recipients?: string;
     schedule?: string;
     format?: string;
+    maxJobs?: number;
+    notifications?: boolean;
+    retentionDays?: number;
   };
 };
 
@@ -39,8 +41,8 @@ export const CustomNode = ({ data }: { data: NodeData }) => {
       linkedin: { bg: '#0077b5', border: '#005582' },
       remoteok: { bg: '#10b981', border: '#059669' },
       naukri: { bg: '#ed1c24', border: '#b81519' },
-      google: { bg: '#4285f4', border: '#3367d6' },
-      wellfound: { bg: '#000000', border: '#333333' },
+      arbeitnow: { bg: '#f97316', border: '#c2410c' },
+      jobicy: { bg: '#06b6d4', border: '#0891b2' },
     };
     
     const color = colors[data.jobType || 'linkedin'];

@@ -27,6 +27,12 @@ router.get(
   jobController.getJobCounts
 );
 
+router.get(
+  '/user/analytics',
+  authenticate,
+  jobController.getAnalytics
+);
+
 router.patch(
   '/user/:id/read',
   authenticate,
