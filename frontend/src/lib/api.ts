@@ -342,6 +342,23 @@ class ApiClient {
     );
     return response as unknown as PaginatedResponse<any>;
   }
+
+  async getAdminWorkflow(id: string): Promise<any> {
+    const response = await this.request<any>(`/admin/workflows/${id}`);
+    return response.data!;
+  }
+
+  async deleteAdminWorkflow(id: string): Promise<void> {
+    await this.request(`/admin/workflows/${id}`, { method: 'DELETE' });
+  }
+
+  async deleteAdminUser(id: string): Promise<void> {
+    await this.request(`/admin/users/${id}`, { method: 'DELETE' });
+  }
+
+  async deleteAdminFeedback(id: string): Promise<void> {
+    await this.request(`/admin/feedbacks/${id}`, { method: 'DELETE' });
+  }
 }
 
 export const api = new ApiClient();

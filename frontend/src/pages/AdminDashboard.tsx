@@ -1,20 +1,34 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { 
   Users, 
   MessageSquare, 
-  Workflow, 
+  Workflow as WorkflowIcon, 
   TrendingUp,
   ArrowLeft,
   CheckCircle,
   Eye,
   UserX,
   UserCheck,
-  Shield
+  Shield,
+  Trash2,
+  Zap,
+  ZapOff,
+  ExternalLink
 } from 'lucide-react';
 
 interface Stats {
@@ -37,6 +51,18 @@ interface UserData {
   createdAt: string;
 }
 
+interface WorkflowData {
+  _id: string;
+  workflowId: string;
+  title: string;
+  status: string;
+  nodeCount: number;
+  executionCount: number;
+  isActive: boolean;
+  createdAt: string;
+  lastExecutedAt?: string;
+}
+
 interface FeedbackData {
   _id: string;
   type: string;
@@ -50,12 +76,15 @@ interface FeedbackData {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'feedbacks'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'workflows' | 'feedbacks'>('overview');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowData[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedbackFilter, setFeedbackFilter] = useState<string>('');
+  const [deleteDialog, setDeleteDialog] = useState<{ type: 'user' | 'workflow' | 'feedback'; id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!user?.isAdmin) {
@@ -69,13 +98,15 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [statsData, usersData, feedbacksData] = await Promise.all([
+      const [statsData, usersData, workflowsData, feedbacksData] = await Promise.all([
         api.getAdminStats(),
         api.getAdminUsers(),
+        api.getAdminWorkflows(),
         api.getAdminFeedbacks(),
       ]);
       setStats(statsData);
       setUsers(usersData.data);
+      setWorkflows(workflowsData.data);
       setFeedbacks(feedbacksData.data);
     } catch (error: any) {
       toast.error('Failed to load admin data', {
@@ -95,6 +126,32 @@ export default function AdminDashboard() {
       toast.success(result.isActive ? 'User activated' : 'User deactivated');
     } catch (error: any) {
       toast.error('Failed to update user');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteDialog) return;
+    
+    setIsDeleting(true);
+    try {
+      if (deleteDialog.type === 'user') {
+        await api.deleteAdminUser(deleteDialog.id);
+        setUsers(users.filter(u => u._id !== deleteDialog.id));
+      } else if (deleteDialog.type === 'workflow') {
+        await api.deleteAdminWorkflow(deleteDialog.id);
+        setWorkflows(workflows.filter(w => w.workflowId !== deleteDialog.id));
+      } else if (deleteDialog.type === 'feedback') {
+        await api.deleteAdminFeedback(deleteDialog.id);
+        setFeedbacks(feedbacks.filter(f => f._id !== deleteDialog.id));
+      }
+      toast.success(`${deleteDialog.type.charAt(0).toUpperCase() + deleteDialog.type.slice(1)} deleted`);
+      setDeleteDialog(null);
+    } catch (error: any) {
+      toast.error(`Failed to delete ${deleteDialog.type}`, {
+        description: error.message,
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -176,10 +233,11 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           {[
             { id: 'overview', label: 'Overview', icon: TrendingUp },
             { id: 'users', label: 'Users', icon: Users },
+            { id: 'workflows', label: 'Workflows', icon: WorkflowIcon },
             { id: 'feedbacks', label: 'Feedbacks', icon: MessageSquare },
           ].map((tab) => (
             <Button
@@ -215,7 +273,7 @@ export default function AdminDashboard() {
               <div className="bg-white rounded-xl p-6 shadow-sm border">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-purple-100 rounded-lg">
-                    <Workflow className="w-6 h-6 text-purple-600" />
+                    <WorkflowIcon className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Total Workflows</p>
@@ -281,55 +339,152 @@ export default function AdminDashboard() {
         {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Workflows</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Last Login</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {users.map((u) => (
-                  <tr key={u._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <p className="font-medium text-gray-900">{u.name}</p>
-                          <p className="text-sm text-gray-500">{u.email}</p>
-                        </div>
-                        {u.isAdmin && (
-                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full">Admin</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{u.workflowCount || 0}</td>
-                    <td className="px-6 py-4 text-gray-500 text-sm">
-                      {u.lastLoginAt ? formatDate(u.lastLoginAt) : 'Never'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {u.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {!u.isAdmin && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleUserActive(u._id)}
-                          className={u.isActive ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}
-                        >
-                          {u.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
-                        </Button>
-                      )}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">User</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Workflows</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Last Login</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y">
+                  {users.map((u) => (
+                    <tr key={u._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="font-medium text-gray-900">{u.name}</p>
+                            <p className="text-sm text-gray-500">{u.email}</p>
+                          </div>
+                          {u.isAdmin && (
+                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full">Admin</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{u.workflowCount || 0}</td>
+                      <td className="px-6 py-4 text-gray-500 text-sm">
+                        {u.lastLoginAt ? formatDate(u.lastLoginAt) : 'Never'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {u.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {!u.isAdmin && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleUserActive(u._id)}
+                              className={u.isActive ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                              title={u.isActive ? 'Deactivate' : 'Activate'}
+                            >
+                              {u.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteDialog({ type: 'user', id: u._id, name: u.email })}
+                              className="text-red-600 hover:text-red-700"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Workflows Tab */}
+        {activeTab === 'workflows' && (
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Workflow</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Active</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Nodes</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Executions</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Last Run</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {workflows.map((w) => (
+                    <tr key={w._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-medium text-gray-900">{w.title}</p>
+                          <p className="text-sm text-gray-500">{w.workflowId}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          w.status === 'published' ? 'bg-green-100 text-green-700' : 
+                          w.status === 'paused' ? 'bg-yellow-100 text-yellow-700' : 
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {w.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {w.isActive ? (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <Zap size={14} />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-gray-400">
+                            <ZapOff size={14} />
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{w.nodeCount}</td>
+                      <td className="px-6 py-4 text-gray-600">{w.executionCount}</td>
+                      <td className="px-6 py-4 text-gray-500 text-sm">
+                        {w.lastExecutedAt ? formatDate(w.lastExecutedAt) : 'Never'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-1">
+                          <Link to={`/workflow/${w.workflowId}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-indigo-600 hover:text-indigo-700"
+                              title="View"
+                            >
+                              <ExternalLink size={16} />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteDialog({ type: 'workflow', id: w.workflowId, name: w.title })}
+                            className="text-red-600 hover:text-red-700"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -402,6 +557,15 @@ export default function AdminDashboard() {
                         Resolve
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => setDeleteDialog({ type: 'feedback', id: f._id, name: 'this feedback' })}
+                    >
+                      <Trash2 size={14} className="mr-1" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -409,7 +573,39 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-500" />
+              Delete {deleteDialog?.type}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteDialog?.name}</strong>? This action cannot be undone.
+              {deleteDialog?.type === 'user' && ' All their workflows will also be deleted.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-

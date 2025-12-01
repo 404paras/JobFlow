@@ -264,5 +264,140 @@ router.get('/workflows', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Get single workflow (admin view)
+router.get('/workflows/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const workflow = await Workflow.findOne({ workflowId: req.params.id });
+    
+    if (!workflow) {
+      res.status(404).json({
+        success: false,
+        message: 'Workflow not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: workflow,
+    });
+  } catch (error) {
+    logger.error('Failed to get workflow', { error });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get workflow',
+    });
+  }
+});
+
+// Delete workflow (admin)
+router.delete('/workflows/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const workflow = await Workflow.findOneAndDelete({ workflowId: req.params.id });
+    
+    if (!workflow) {
+      res.status(404).json({
+        success: false,
+        message: 'Workflow not found',
+      });
+      return;
+    }
+
+    logger.info('Workflow deleted by admin', { 
+      workflowId: req.params.id,
+      adminId: req.userId,
+    });
+
+    res.json({
+      success: true,
+      message: 'Workflow deleted',
+    });
+  } catch (error) {
+    logger.error('Failed to delete workflow', { error });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete workflow',
+    });
+  }
+});
+
+// Delete user (admin)
+router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findById(req.params.id);
+    
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Prevent deleting admin users
+    if (user.isAdmin) {
+      res.status(403).json({
+        success: false,
+        message: 'Cannot delete admin users',
+      });
+      return;
+    }
+
+    // Delete user's workflows
+    await Workflow.deleteMany({ _id: { $in: user.workflows } });
+    
+    // Delete user
+    await User.findByIdAndDelete(req.params.id);
+
+    logger.info('User deleted by admin', { 
+      userId: req.params.id,
+      email: user.email,
+      adminId: req.userId,
+    });
+
+    res.json({
+      success: true,
+      message: 'User and their workflows deleted',
+    });
+  } catch (error) {
+    logger.error('Failed to delete user', { error });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete user',
+    });
+  }
+});
+
+// Delete feedback (admin)
+router.delete('/feedbacks/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const feedback = await Feedback.findByIdAndDelete(req.params.id);
+    
+    if (!feedback) {
+      res.status(404).json({
+        success: false,
+        message: 'Feedback not found',
+      });
+      return;
+    }
+
+    logger.info('Feedback deleted by admin', { 
+      feedbackId: req.params.id,
+      adminId: req.userId,
+    });
+
+    res.json({
+      success: true,
+      message: 'Feedback deleted',
+    });
+  } catch (error) {
+    logger.error('Failed to delete feedback', { error });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete feedback',
+    });
+  }
+});
+
 export default router;
 
