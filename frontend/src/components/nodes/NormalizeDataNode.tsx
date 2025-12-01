@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { RefreshCw, Copy, Sparkles } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 interface NormalizeDataNodeProps {
   data: {
@@ -15,57 +15,36 @@ interface NormalizeDataNodeProps {
 }
 
 export const NormalizeDataNode = ({ data, selected }: NormalizeDataNodeProps) => {
+  const features = [];
+  if (data.metadata?.removeDuplicates === 'Yes') features.push('Dedup');
+  if (data.metadata?.textCleaning) features.push('Clean');
+
   return (
     <div className={`
-      relative group
-      bg-gradient-to-br from-violet-400 to-purple-500
-      rounded-xl p-3 min-w-[140px] max-w-[170px]
-      shadow-[0_0_20px_rgba(139,92,246,0.3)]
-      ${selected ? 'ring-2 ring-white ring-offset-2' : ''}
-      transition-all duration-300 ease-out
-      hover:scale-105 hover:shadow-xl
-      cursor-pointer
+      bg-white rounded-lg border-2 shadow-sm min-w-[100px]
+      ${selected ? 'border-violet-500 shadow-violet-100' : 'border-gray-200'}
+      transition-all duration-150 hover:shadow-md
     `}>
-      {/* Glassmorphism overlay */}
-      <div className="absolute inset-0 rounded-xl bg-white/10 backdrop-blur-sm" />
-      
-      {/* Content */}
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 text-white mb-2">
-          <div className="p-1.5 bg-white/20 rounded-lg">
-            <RefreshCw size={14} />
-          </div>
-          <span className="font-semibold text-sm">Normalize</span>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="w-6 h-6 rounded bg-violet-500 flex items-center justify-center">
+          <RefreshCw size={14} className="text-white" />
         </div>
-        
-        {data.metadata && (
-          <div className="space-y-1 text-white/90 text-xs">
-            {data.metadata.removeDuplicates === 'Yes' && (
-              <div className="flex items-center gap-1.5">
-                <Copy size={10} className="opacity-70" />
-                <span>Remove Duplicates</span>
-              </div>
-            )}
-            {data.metadata.textCleaning && (
-              <div className="flex items-center gap-1.5">
-                <Sparkles size={10} className="opacity-70" />
-                <span>{data.metadata.textCleaning} Clean</span>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-gray-700">Normalize</span>
+          {features.length > 0 && (
+            <span className="text-[10px] text-gray-400">{features.join(', ')}</span>
+          )}
+        </div>
       </div>
-
-      {/* Handles */}
       <Handle 
         type="target" 
         position={Position.Left}
-        className="!w-3 !h-3 !bg-white !border-2 !border-purple-400 !-left-1.5 transition-transform hover:scale-125"
+        className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !-left-1"
       />
       <Handle 
         type="source" 
         position={Position.Right}
-        className="!w-3 !h-3 !bg-white !border-2 !border-purple-400 !-right-1.5 transition-transform hover:scale-125"
+        className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !-right-1"
       />
     </div>
   );

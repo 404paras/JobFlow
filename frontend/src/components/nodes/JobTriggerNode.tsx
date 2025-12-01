@@ -9,35 +9,20 @@ interface JobTriggerNodeProps {
 export const JobTriggerNode = ({ data, selected }: JobTriggerNodeProps) => {
   return (
     <div className={`
-      relative group
-      bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500
-      rounded-xl p-4 min-w-[120px]
-      shadow-[0_0_25px_rgba(139,92,246,0.4)]
-      ${selected ? 'ring-2 ring-white ring-offset-2' : ''}
-      transition-all duration-300 ease-out
-      hover:scale-105 hover:shadow-[0_0_35px_rgba(139,92,246,0.5)]
-      cursor-pointer
+      bg-white rounded-lg border-2 shadow-sm min-w-[100px]
+      ${selected ? 'border-purple-500 shadow-purple-100' : 'border-gray-200'}
+      transition-all duration-150 hover:shadow-md
     `}>
-      {/* Animated pulse ring */}
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 animate-pulse opacity-50" />
-      
-      {/* Glassmorphism overlay */}
-      <div className="absolute inset-0 rounded-xl bg-white/10 backdrop-blur-sm" />
-      
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center gap-2">
-        <div className="p-2 bg-white/20 rounded-full">
-          <Zap size={18} className="text-white" />
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="w-6 h-6 rounded bg-purple-500 flex items-center justify-center">
+          <Zap size={14} className="text-white" />
         </div>
-        <span className="font-bold text-white text-sm tracking-wide">{data.label}</span>
+        <span className="text-xs font-medium text-gray-700">{data.label}</span>
       </div>
-
-      {/* Source handle */}
       <Handle 
         type="source" 
         position={Position.Right}
-        id="trigger-source"
-        className="!w-4 !h-4 !bg-white !border-2 !border-purple-400 !-right-2 transition-transform hover:scale-125"
+        className="!w-2.5 !h-2.5 !bg-purple-500 !border-2 !border-white !-right-1"
       />
     </div>
   );

@@ -101,6 +101,10 @@ export default function MyJobs() {
       const updated = await api.toggleJobBookmark(job._id);
       setJobs(jobs.map(j => j._id === job._id ? updated : j));
       if (selectedJob?._id === job._id) setSelectedJob(updated);
+      setCounts(prev => ({
+        ...prev,
+        bookmarked: prev.bookmarked + (updated.isBookmarked ? 1 : -1)
+      }));
       toast.success(updated.isBookmarked ? 'Job bookmarked' : 'Bookmark removed');
     } catch (error: any) {
       toast.error('Failed to update bookmark');
@@ -109,9 +113,16 @@ export default function MyJobs() {
 
   const handleStatusChange = async (job: Job, status: ApplicationStatus) => {
     try {
+      const oldStatus = job.applicationStatus;
       const updated = await api.updateJobStatus(job._id, status);
       setJobs(jobs.map(j => j._id === job._id ? updated : j));
       if (selectedJob?._id === job._id) setSelectedJob(updated);
+      setCounts(prev => ({
+        ...prev,
+        applied: prev.applied + 
+          (status !== 'none' && oldStatus === 'none' ? 1 : 0) +
+          (status === 'none' && oldStatus !== 'none' ? -1 : 0)
+      }));
       toast.success(`Status updated to ${STATUS_LABELS[status]}`);
     } catch (error: any) {
       toast.error('Failed to update status');

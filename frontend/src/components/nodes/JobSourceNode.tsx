@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { Linkedin, Globe, Building2, MapPin, Briefcase, Search, Rocket } from 'lucide-react';
+import { Linkedin, Globe, Building2, Search, Rocket } from 'lucide-react';
 
 export type JobSourceType = 'linkedin' | 'remoteok' | 'naukri' | 'google' | 'wellfound';
 
@@ -17,32 +17,12 @@ interface JobSourceNodeProps {
 }
 
 export const JobSourceNode = ({ data, selected }: JobSourceNodeProps) => {
-  const themes = {
-    linkedin: { 
-      gradient: 'from-[#0077b5] to-[#00a0dc]',
-      glow: 'shadow-[0_0_20px_rgba(0,119,181,0.3)]',
-      icon: Linkedin
-    },
-    remoteok: { 
-      gradient: 'from-emerald-500 to-teal-400',
-      glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
-      icon: Globe
-    },
-    naukri: { 
-      gradient: 'from-red-500 to-rose-400',
-      glow: 'shadow-[0_0_20px_rgba(239,68,68,0.3)]',
-      icon: Building2
-    },
-    google: { 
-      gradient: 'from-blue-500 via-green-500 to-yellow-500',
-      glow: 'shadow-[0_0_20px_rgba(66,133,244,0.3)]',
-      icon: Search
-    },
-    wellfound: { 
-      gradient: 'from-slate-800 to-slate-600',
-      glow: 'shadow-[0_0_20px_rgba(0,0,0,0.3)]',
-      icon: Rocket
-    },
+  const themes: Record<JobSourceType, { color: string; icon: typeof Linkedin }> = {
+    linkedin: { color: 'bg-[#0077b5]', icon: Linkedin },
+    remoteok: { color: 'bg-emerald-500', icon: Globe },
+    naukri: { color: 'bg-red-500', icon: Building2 },
+    google: { color: 'bg-blue-500', icon: Search },
+    wellfound: { color: 'bg-slate-700', icon: Rocket },
   };
 
   const theme = themes[data.jobType] || themes.remoteok;
@@ -50,55 +30,30 @@ export const JobSourceNode = ({ data, selected }: JobSourceNodeProps) => {
 
   return (
     <div className={`
-      relative group
-      bg-gradient-to-br ${theme.gradient}
-      rounded-xl p-3 min-w-[140px]
-      ${theme.glow}
-      ${selected ? 'ring-2 ring-white ring-offset-2 ring-offset-transparent' : ''}
-      transition-all duration-300 ease-out
-      hover:scale-105 hover:shadow-xl
-      cursor-pointer
+      bg-white rounded-lg border-2 shadow-sm min-w-[110px]
+      ${selected ? 'border-blue-500 shadow-blue-100' : 'border-gray-200'}
+      transition-all duration-150 hover:shadow-md
     `}>
-      {/* Glassmorphism overlay */}
-      <div className="absolute inset-0 rounded-xl bg-white/10 backdrop-blur-sm" />
-      
-      {/* Content */}
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 text-white mb-2">
-          <div className="p-1.5 bg-white/20 rounded-lg">
-            <Icon size={14} />
-          </div>
-          <span className="font-semibold text-sm">{data.label}</span>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className={`w-6 h-6 rounded ${theme.color} flex items-center justify-center`}>
+          <Icon size={14} className="text-white" />
         </div>
-        
-        {data.metadata && (
-          <div className="space-y-1 text-white/90 text-xs">
-            {data.metadata.jobType && (
-              <div className="flex items-center gap-1.5">
-                <Briefcase size={10} className="opacity-70" />
-                <span>{data.metadata.jobType}</span>
-              </div>
-            )}
-            {data.metadata.location && (
-              <div className="flex items-center gap-1.5">
-                <MapPin size={10} className="opacity-70" />
-                <span className="truncate max-w-[100px]">{data.metadata.location}</span>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-gray-700">{data.label}</span>
+          {data.metadata?.jobType && (
+            <span className="text-[10px] text-gray-400 truncate max-w-[70px]">{data.metadata.jobType}</span>
+          )}
+        </div>
       </div>
-
-      {/* Handles with glow effect */}
       <Handle 
         type="target" 
         position={Position.Left}
-        className="!w-3 !h-3 !bg-white !border-2 !border-current !-left-1.5 transition-transform hover:scale-125"
+        className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !-left-1"
       />
       <Handle 
         type="source" 
         position={Position.Right}
-        className="!w-3 !h-3 !bg-white !border-2 !border-current !-right-1.5 transition-transform hover:scale-125"
+        className="!w-2.5 !h-2.5 !bg-gray-400 !border-2 !border-white !-right-1"
       />
     </div>
   );
