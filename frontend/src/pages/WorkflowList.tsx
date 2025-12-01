@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import type { Workflow } from '../lib/types';
 import { api } from '../lib/api';
-import { Trash2, Play, Square, LogOut, Plus, Mail, FileText, AlertCircle, Clock, Info, Zap, ZapOff } from 'lucide-react';
+import { Trash2, Play, Square, LogOut, Plus, Mail, FileText, AlertCircle, Clock, Info, Zap, ZapOff, Shield } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialog';
 import { ResumeUpload } from '../components/ResumeUpload';
 import { toast } from 'sonner';
@@ -279,6 +279,17 @@ export default function WorkflowList() {
                 <span className="text-gray-600 text-sm hidden md:block">
                   {user?.name}
                 </span>
+                {user?.isAdmin && (
+                  <Link to="/admin">
+                    <Button 
+                      variant="outline" 
+                      className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                    >
+                      <Shield size={16} className="mr-2" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
                 <Button 
                   onClick={logout}
                   variant="outline" 

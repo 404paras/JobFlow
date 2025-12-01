@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 import { User } from '../modules/users/user.model';
 
-const ADMIN_EMAIL = 'admin@123';
+const ADMIN_EMAIL = 'admin@gmail.com';
 const ADMIN_PASSWORD = 'admin@123';
 const ADMIN_NAME = 'Admin';
 
