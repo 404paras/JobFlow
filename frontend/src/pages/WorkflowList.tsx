@@ -283,7 +283,7 @@ export default function WorkflowList() {
                   <Link to="/admin">
                     <Button 
                       variant="outline" 
-                      className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      className="border border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 font-medium rounded-xl transition-all"
                     >
                       <Shield size={16} className="mr-2" />
                       Admin
@@ -293,7 +293,7 @@ export default function WorkflowList() {
                 <Button 
                   onClick={logout}
                   variant="outline" 
-                  className="border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
+                  className="border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 font-medium rounded-xl transition-all"
                 >
                   <LogOut size={16} className="mr-2" />
                   Logout
@@ -301,8 +301,8 @@ export default function WorkflowList() {
               </>
             )}
             <Link to="/workflow/new">
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200">
-                <Plus size={16} className="mr-1" />
+              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 transition-all">
+                <Plus size={16} className="mr-2" />
                 New Workflow
               </Button>
             </Link>

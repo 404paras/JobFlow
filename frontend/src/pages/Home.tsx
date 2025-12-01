@@ -17,7 +17,7 @@ export default function Home() {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 border-b border-gray-100 bg-white/70 backdrop-blur-xl sticky top-0">
+      <header className="relative z-50 border-b border-gray-100 bg-white/80 backdrop-blur-xl sticky top-0 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to={isAuthenticated ? "/workflows" : "/"} className="flex items-center gap-3 group">
             <img src="/logo.svg" alt="JobFlow" className="w-10 h-10 shadow-lg shadow-purple-200 rounded-xl group-hover:scale-105 transition-transform" />
@@ -39,14 +39,15 @@ export default function Home() {
                   Welcome, {user?.name}
                 </span>
                 <Link to="/workflows">
-                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200">
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 transition-all px-5">
                     My Workflows
+                    <ArrowRight size={16} className="ml-2" />
                   </Button>
                 </Link>
                 <Button 
                   onClick={logout}
                   variant="outline" 
-                  className="border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
+                  className="border border-gray-200 text-gray-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 font-medium rounded-xl transition-all"
                 >
                   <LogOut size={16} className="mr-2" />
                   Logout
@@ -55,16 +56,8 @@ export default function Home() {
             ) : (
               <>
                 <Link to="/login">
-                  <Button 
-                    variant="ghost" 
-                    className="text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 font-medium px-4"
-                  >
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 transition-all px-6">
                     Sign In
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 bg-[length:200%_100%] hover:bg-right transition-all duration-300 text-white shadow-lg shadow-indigo-200/50 font-semibold px-6 rounded-full">
-                    Get Started Free
                     <ArrowRight size={16} className="ml-2" />
                   </Button>
                 </Link>

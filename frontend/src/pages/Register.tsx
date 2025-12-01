@@ -123,7 +123,7 @@ export default function Register() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 mt-2"
+              className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-200/50 transition-all disabled:opacity-50 mt-2"
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">

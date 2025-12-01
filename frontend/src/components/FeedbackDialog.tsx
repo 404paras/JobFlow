@@ -59,10 +59,13 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100">
-            <MessageSquare size={16} />
-            <span>Feedback</span>
-          </button>
+          <Button 
+            variant="outline"
+            className="border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 font-medium rounded-xl transition-all"
+          >
+            <MessageSquare size={16} className="mr-2" />
+            Feedback
+          </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
