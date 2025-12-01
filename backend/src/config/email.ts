@@ -19,28 +19,54 @@ export function createEmailTransporter(): Transporter {
     return transporter;
   }
 
+  // Determine if using Gmail
+  const isGmail = config.email.host.includes('gmail');
+  
   transporter = nodemailer.createTransport({
     host: config.email.host,
     port: config.email.port,
-    secure: config.email.secure,
+    secure: config.email.secure, // true for 465, false for other ports
     auth: {
       user: config.email.user,
       pass: config.email.pass,
     },
+    // Connection settings
+    connectionTimeout: 30000, // 30 seconds to establish connection
+    greetingTimeout: 30000,   // 30 seconds for SMTP greeting
+    socketTimeout: 60000,     // 60 seconds socket timeout
+    // Pool settings for better reliability
     pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-    rateDelta: 1000,
-    rateLimit: 5,
+    maxConnections: 3,
+    maxMessages: 50,
+    rateDelta: 2000,
+    rateLimit: 3,
+    // TLS settings
+    tls: {
+      rejectUnauthorized: config.env === 'production',
+      minVersion: 'TLSv1.2',
+    },
+    // Debug in development
+    debug: config.env !== 'production',
+    logger: config.env !== 'production',
   });
 
-  transporter.verify((error) => {
-    if (error) {
-      logger.error('Email transporter verification failed', { error: error.message });
-    } else {
-      logger.info('Email transporter ready');
-    }
-  });
+  // Verify connection asynchronously (don't block startup)
+  setTimeout(() => {
+    transporter?.verify((error) => {
+      if (error) {
+        logger.error('Email transporter verification failed', { 
+          error: error.message,
+          host: config.email.host,
+          port: config.email.port,
+        });
+      } else {
+        logger.info('Email transporter verified and ready', {
+          host: config.email.host,
+          port: config.email.port,
+        });
+      }
+    });
+  }, 5000); // Delay verification to let server fully start
 
   return transporter;
 }

@@ -5,37 +5,83 @@ import { ScrapedJob, EmailPayload } from '../../shared/types';
 import { generateJobDigestHtml, generateJobDigestText } from './email.templates';
 import { Workflow } from '../workflows/workflow.model';
 
+// Simple delay helper
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export class EmailService {
+  private readonly maxRetries = 3;
+  private readonly retryDelayMs = 5000; // 5 seconds between retries
+
   async send(payload: EmailPayload): Promise<boolean> {
     const transporter = getEmailTransporter();
 
-    try {
-      const mailOptions = {
-        from: config.email.from,
-        to: Array.isArray(payload.to) ? payload.to.join(', ') : payload.to,
-        subject: payload.subject,
-        html: payload.html,
-        text: payload.text,
-        attachments: payload.attachments,
-      };
+    const mailOptions = {
+      from: config.email.from,
+      to: Array.isArray(payload.to) ? payload.to.join(', ') : payload.to,
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+      attachments: payload.attachments,
+    };
 
-      const result = await transporter.sendMail(mailOptions);
+    // Retry logic for transient failures
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const result = await transporter.sendMail(mailOptions);
 
-      logger.info('Email sent successfully', {
-        to: payload.to,
-        subject: payload.subject,
-        messageId: result.messageId,
-      });
+        logger.info('Email sent successfully', {
+          to: payload.to,
+          subject: payload.subject,
+          messageId: result.messageId,
+          attempt,
+        });
 
-      return true;
-    } catch (error) {
-      logger.error('Failed to send email', {
-        to: payload.to,
-        subject: payload.subject,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      return false;
+        return true;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const isLastAttempt = attempt === this.maxRetries;
+        const isRetryable = this.isRetryableError(errorMessage);
+
+        logger.warn(`Email send attempt ${attempt}/${this.maxRetries} failed`, {
+          to: payload.to,
+          subject: payload.subject,
+          error: errorMessage,
+          willRetry: !isLastAttempt && isRetryable,
+        });
+
+        if (isLastAttempt || !isRetryable) {
+          logger.error('Failed to send email after all retries', {
+            to: payload.to,
+            subject: payload.subject,
+            error: errorMessage,
+            attempts: attempt,
+          });
+          return false;
+        }
+
+        // Wait before retry
+        await delay(this.retryDelayMs * attempt); // Exponential backoff
+      }
     }
+
+    return false;
+  }
+
+  private isRetryableError(errorMessage: string): boolean {
+    const retryablePatterns = [
+      'timeout',
+      'ETIMEDOUT',
+      'ECONNRESET',
+      'ECONNREFUSED',
+      'connection',
+      'socket',
+      'temporary',
+      'try again',
+    ];
+    
+    return retryablePatterns.some(pattern => 
+      errorMessage.toLowerCase().includes(pattern.toLowerCase())
+    );
   }
 
   async sendJobDigest(

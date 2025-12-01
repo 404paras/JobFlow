@@ -1,4 +1,5 @@
-import puppeteer, { Browser } from 'puppeteer';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 import { IScraper, ScraperConfig, ScraperResult, getRandomUserAgent } from './scraper.types';
 import { withRetry, generateJobUid, cleanText, extractSalary } from './scraper.utils';
 import { ScrapedJob, JobSource } from '../../shared/types';
@@ -16,89 +17,128 @@ export class NaukriScraper implements IScraper {
     const { keywords, location, maxResults = 25 } = scraperConfig;
     const timeout = scraperConfig.timeout || config.scraper.timeout;
 
-    // Format keywords for URL
+    // Format keywords for URL - Naukri uses hyphenated format
     const formattedKeywords = keywords.replace(/\s+/g, '-').toLowerCase();
-    const url = `https://www.naukri.com/${formattedKeywords}-jobs-in-${location.toLowerCase()}`;
-
-    let browser: Browser | null = null;
+    const formattedLocation = location.replace(/\s+/g, '-').toLowerCase();
+    const url = `https://www.naukri.com/${formattedKeywords}-jobs-in-${formattedLocation}`;
 
     try {
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-        ],
-      });
-
-      const page = await browser.newPage();
-      await page.setUserAgent(getRandomUserAgent());
-      await page.setViewport({ width: 1920, height: 1080 });
-
-      await withRetry(
+      const html = await withRetry(
         async () => {
-          await page.goto(url, {
-            waitUntil: 'networkidle2',
+          const response = await axios.get(url, {
+            headers: {
+              'User-Agent': getRandomUserAgent(),
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+              'Accept-Encoding': 'gzip, deflate, br',
+              'Connection': 'keep-alive',
+              'Cache-Control': 'max-age=0',
+            },
             timeout,
           });
+          return response.data;
         },
         { maxAttempts: config.scraper.retryAttempts },
-        'Naukri page load'
+        'Naukri scrape'
       );
 
-      // Wait for job listings
-      await page.waitForSelector('.jobTuple, .srp-jobtuple-wrapper, .cust-job-tuple', {
-        timeout: 10000,
-      }).catch(() => {
-        logger.warn('Naukri: Job selector timeout, attempting to scrape anyway');
-      });
+      const $ = cheerio.load(html);
 
-      // Extract job data - runs in browser context
-      const scrapedData: Array<{
-        title: string;
-        company: string;
-        location: string;
-        salary: string;
-        description: string;
-        url: string;
-      }> = await page.evaluate(() => {
-        const jobNodes = Array.from(
-          document.querySelectorAll('.jobTuple, .srp-jobtuple-wrapper, .cust-job-tuple')
-        );
-        
-        return jobNodes.map((node) => {
-          const titleEl = node.querySelector('a.title, .title, .jobTitle');
-          const companyEl = node.querySelector('.subTitle, .comp-name, .companyInfo');
-          const locationEl = node.querySelector('.location, .locWdth, .loc');
-          const salaryEl = node.querySelector('.salary, .sal, .salaryText');
-          const descEl = node.querySelector('.job-description, .ellipsis, .job-desc');
-          const linkEl = node.querySelector('a') as HTMLAnchorElement | null;
+      // Try to parse JSON-LD structured data first (most reliable)
+      $('script[type="application/ld+json"]').each((_, el) => {
+        try {
+          const json = JSON.parse($(el).text());
+          
+          const processJob = (j: any) => {
+            if (j['@type'] === 'JobPosting') {
+              const title = cleanText(j.title);
+              const company = cleanText(j.hiringOrganization?.name) || 'Unknown';
+              const jobLocation = cleanText(
+                j.jobLocation?.address?.addressLocality || 
+                j.jobLocation?.address?.addressRegion || 
+                location
+              );
+              const postedAt = j.datePosted ? new Date(j.datePosted) : new Date();
+              const description = cleanText(j.description) || 'No description available';
+              const jobUrl = j.url || '';
+              const salary = j.baseSalary?.value?.value 
+                ? `₹${j.baseSalary.value.value}` 
+                : extractSalary(j.baseSalary?.value?.toString() || '');
 
-          return {
-            title: titleEl?.textContent?.trim() || '',
-            company: companyEl?.textContent?.trim() || '',
-            location: locationEl?.textContent?.trim() || '',
-            salary: salaryEl?.textContent?.trim() || '',
-            description: descEl?.textContent?.trim() || '',
-            url: linkEl?.href || '',
+              if (title && company) {
+                jobs.push({
+                  uid: generateJobUid(this.source, title, company, jobLocation),
+                  title,
+                  company,
+                  location: jobLocation,
+                  postedAt,
+                  description,
+                  url: jobUrl,
+                  source: this.source,
+                  salary,
+                  raw: j,
+                });
+              }
+            }
           };
-        }).filter((job) => job.title && job.company);
+
+          if (Array.isArray(json)) {
+            json.forEach(processJob);
+          } else if (json['@graph']) {
+            json['@graph'].forEach(processJob);
+          } else {
+            processJob(json);
+          }
+        } catch {
+          // Ignore JSON parse errors
+        }
       });
 
-      // Process scraped data
-      for (const data of scrapedData) {
-        jobs.push({
-          uid: generateJobUid(this.source, data.title, data.company, data.location),
-          title: cleanText(data.title),
-          company: cleanText(data.company),
-          location: cleanText(data.location) || location,
-          description: cleanText(data.description) || 'No description available',
-          url: data.url,
-          source: this.source,
-          postedAt: new Date(),
-          salary: extractSalary(data.salary),
+      // Fallback: parse visible job cards
+      if (jobs.length === 0) {
+        // Naukri uses various class patterns for job listings
+        const selectors = [
+          '.jobTuple',
+          '.srp-jobtuple-wrapper', 
+          '.cust-job-tuple',
+          '[class*="jobTuple"]',
+          'article[class*="job"]',
+        ];
+
+        $(selectors.join(', ')).each((_, el) => {
+          const $el = $(el);
+          
+          // Try multiple selector patterns for each field
+          const title = cleanText(
+            $el.find('a.title, .title, .jobTitle, [class*="title"] a, h2 a').first().text()
+          );
+          const company = cleanText(
+            $el.find('.subTitle, .comp-name, .companyInfo, [class*="company"], .comp-dtls-wrap a').first().text()
+          );
+          const jobLocation = cleanText(
+            $el.find('.location, .locWdth, .loc, [class*="location"], .loc-wrap').first().text()
+          ) || location;
+          const salaryText = cleanText(
+            $el.find('.salary, .sal, .salaryText, [class*="salary"], .sal-wrap').first().text()
+          );
+          const description = cleanText(
+            $el.find('.job-description, .ellipsis, .job-desc, [class*="desc"]').first().text()
+          ) || 'No description available';
+          const jobUrl = $el.find('a.title, a[class*="title"], h2 a, a').first().attr('href') || '';
+
+          if (title) {
+            jobs.push({
+              uid: generateJobUid(this.source, title, company || 'Unknown', jobLocation),
+              title,
+              company: company || 'Unknown',
+              location: jobLocation,
+              description,
+              url: jobUrl.startsWith('http') ? jobUrl : `https://www.naukri.com${jobUrl}`,
+              source: this.source,
+              postedAt: new Date(),
+              salary: extractSalary(salaryText),
+            });
+          }
         });
       }
 
@@ -111,10 +151,6 @@ export class NaukriScraper implements IScraper {
       const message = error instanceof Error ? error.message : 'Unknown error';
       errors.push(message);
       logger.error('Naukri scrape failed', { error: message });
-    } finally {
-      if (browser) {
-        await browser.close();
-      }
     }
 
     return {
@@ -130,4 +166,3 @@ export class NaukriScraper implements IScraper {
 
 export const naukriScraper = new NaukriScraper();
 export default naukriScraper;
-

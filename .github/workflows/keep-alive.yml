@@ -19,34 +19,47 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wake Up Backend
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
           echo "⏰ Waking up backend before scheduled job..."
           echo "🕐 Current UTC time: $(date -u)"
+          echo "🔗 Backend URL: ${BACKEND_URL:-NOT_SET}"
           
-          # First ping - might take longer due to cold start
+          if [ -z "$BACKEND_URL" ]; then
+            echo "❌ BACKEND_URL secret is not set!"
+            echo "Please add BACKEND_URL secret in GitHub repo settings"
+            exit 1
+          fi
+          
+          # First ping - might take longer due to cold start (up to 2 minutes for Render)
           echo "🏓 Sending wake-up ping..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 ${{ secrets.BACKEND_URL }}/health || echo "000")
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "${BACKEND_URL}/health" || echo "000")
+          echo "📡 Response: HTTP $RESPONSE"
           
           if [ "$RESPONSE" = "200" ]; then
-            echo "✅ Backend is awake! (HTTP $RESPONSE)"
+            echo "✅ Backend is awake!"
           else
-            echo "⏳ Cold start detected (HTTP $RESPONSE), waiting 30s..."
-            sleep 30
+            echo "⏳ Cold start detected, waiting 45s and retrying..."
+            sleep 45
             
             # Retry ping
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 ${{ secrets.BACKEND_URL }}/health || echo "000")
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 "${BACKEND_URL}/health" || echo "000")
+            echo "📡 Retry response: HTTP $RESPONSE"
             
             if [ "$RESPONSE" = "200" ]; then
-              echo "✅ Backend is now awake! (HTTP $RESPONSE)"
+              echo "✅ Backend is now awake!"
             else
-              echo "❌ Backend still not responding (HTTP $RESPONSE)"
-              exit 1
+              echo "⚠️ Backend not responding (HTTP $RESPONSE), but continuing..."
+              # Don't exit 1 - the scheduled job might still wake it up
             fi
           fi
 
       - name: Verify API is Ready
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
           echo "🔍 Verifying API health..."
-          curl -s ${{ secrets.BACKEND_URL }}/api/health
+          curl -s --max-time 30 "${BACKEND_URL}/api/health" || echo "API health check timed out"
           echo ""
-          echo "✅ Backend is ready for scheduled jobs!"
+          echo "✅ Wake-up attempt complete!"
