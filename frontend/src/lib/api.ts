@@ -2,11 +2,8 @@ import type { User, AuthResponse, Workflow, Execution } from './types';
 
 export type { User, AuthResponse, Workflow, Execution };
 
-// In production, use /api (proxied by Vercel to Render backend)
-// In development, use direct backend URL
-const API_BASE_URL = import.meta.env.PROD 
-  ? '/api' 
-  : (import.meta.env.VITE_API_URL || 'http://localhost:6000/api');
+// Use VITE_API_URL from env, fallback to /api for production (Vercel proxy)
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface ApiResponse<T = unknown> {
   success: boolean;

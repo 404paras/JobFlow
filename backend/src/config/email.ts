@@ -9,6 +9,11 @@ let resendClient: Resend | null = null;
 export type EmailProvider = 'smtp' | 'resend';
 
 export function getEmailProvider(): EmailProvider {
+  // If resend is configured but no API key, fallback to smtp
+  if (config.email.provider === 'resend' && !config.email.resendApiKey) {
+    logger.warn('Resend configured but no API key, falling back to SMTP');
+    return 'smtp';
+  }
   return config.email.provider;
 }
 
