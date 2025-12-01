@@ -2,7 +2,7 @@ import type { User, AuthResponse, Workflow, Execution } from './types';
 
 export type { User, AuthResponse, Workflow, Execution };
 
-// In production, use relative /api path (proxied by Vercel)
+// In production, use /api (proxied by Vercel to Render backend)
 // In development, use direct backend URL
 const API_BASE_URL = import.meta.env.PROD 
   ? '/api' 
