@@ -587,10 +587,12 @@ function Workflow() {
   const addOrUpdateJobSourceNode = () => {
     if (!selectedJobSource || !selectedJobType || !selectedLocation) return;
 
-    const jobTypeMap: { [key: string]: 'linkedin' | 'indeed' | 'naukri' } = {
+    const jobTypeMap: { [key: string]: 'linkedin' | 'remoteok' | 'naukri' | 'google' | 'wellfound' } = {
       linkedin: 'linkedin',
-      indeed: 'indeed',
+      remoteok: 'remoteok',
       naukri: 'naukri',
+      google: 'google',
+      wellfound: 'wellfound',
     };
 
     const metadata = {
@@ -909,8 +911,10 @@ function Workflow() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="LinkedIn">LinkedIn Jobs</SelectItem>
-                  <SelectItem value="Indeed">Indeed Jobs</SelectItem>
+                  <SelectItem value="RemoteOK">RemoteOK (Remote)</SelectItem>
                   <SelectItem value="Naukri">Naukri Jobs</SelectItem>
+                  <SelectItem value="Google">Google Jobs</SelectItem>
+                  <SelectItem value="Wellfound">Wellfound (Startups)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1125,9 +1129,10 @@ function Workflow() {
                   <SelectContent>
                     <SelectItem value="any">Any Source</SelectItem>
                     <SelectItem value="linkedin">LinkedIn</SelectItem>
-                    <SelectItem value="indeed">Indeed</SelectItem>
+                    <SelectItem value="remoteok">RemoteOK</SelectItem>
                     <SelectItem value="naukri">Naukri</SelectItem>
-                    <SelectItem value="google">Google</SelectItem>
+                    <SelectItem value="google">Google Jobs</SelectItem>
+                    <SelectItem value="wellfound">Wellfound</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

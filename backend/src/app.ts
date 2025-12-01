@@ -12,6 +12,7 @@ import jobRoutes from './modules/jobs/job.routes';
 import userRoutes from './modules/users/user.routes';
 import executorRoutes from './modules/executor/executor.routes';
 import schedulerRoutes from './modules/scheduler/scheduler.routes';
+import resumeRoutes from './modules/resume/resume.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -89,6 +90,7 @@ export function createApp(): Application {
   app.use('/api/jobs', jobRoutes);
   app.use('/api/execute', executorRoutes);
   app.use('/api/scheduler', schedulerRoutes);
+  app.use('/api/resume', resumeRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

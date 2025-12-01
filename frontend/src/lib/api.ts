@@ -2,7 +2,7 @@ import type { User, AuthResponse, Workflow, Execution } from './types';
 
 export type { User, AuthResponse, Workflow, Execution };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:6000/api';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -52,18 +52,36 @@ class ApiClient {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
 
-    const data = await response.json();
+      // Handle non-JSON responses (e.g., server error pages)
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+        throw new Error('Unexpected response from server');
+      }
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Request failed');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Request failed');
+      }
+
+      return data;
+    } catch (error) {
+      // Handle network errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to server. Please check your internet connection.');
+      }
+      // Re-throw API errors
+      throw error;
     }
-
-    return data;
   }
 
   async register(email: string, password: string, name: string): Promise<AuthResponse> {
@@ -213,6 +231,65 @@ class ApiClient {
 
   async refreshScheduler(): Promise<void> {
     await this.request('/scheduler/refresh', { method: 'POST' });
+  }
+
+  async uploadResume(content: string, fileName: string, fileType: 'pdf' | 'docx' | 'txt'): Promise<{
+    id: string;
+    fileName: string;
+    skills: string[];
+    experience: { title: string; company: string; duration: string }[];
+    education: { degree: string; institution: string; year: string }[];
+    keywords: string[];
+    uploadedAt: string;
+  }> {
+    const response = await this.request<any>('/resume/upload', {
+      method: 'POST',
+      body: JSON.stringify({ content, fileName, fileType }),
+    });
+    return response.data!;
+  }
+
+  async getResume(): Promise<{
+    id: string;
+    fileName: string;
+    fileType: string;
+    skills: string[];
+    experience: { title: string; company: string; duration: string }[];
+    education: { degree: string; institution: string; year: string }[];
+    keywords: string[];
+    uploadedAt: string;
+  } | null> {
+    try {
+      const response = await this.request<any>('/resume');
+      return response.data;
+    } catch {
+      return null;
+    }
+  }
+
+  async deleteResume(): Promise<void> {
+    await this.request('/resume', { method: 'DELETE' });
+  }
+
+  async getResumeSkills(): Promise<{ skills: string[]; keywords: string[] } | null> {
+    try {
+      const response = await this.request<any>('/resume/skills');
+      return response.data;
+    } catch {
+      return null;
+    }
+  }
+
+  async getJobMatchScore(jobDescription: string): Promise<{
+    matchScore: number;
+    matchedSkills: string[];
+    totalSkills: number;
+  }> {
+    const response = await this.request<any>('/resume/match', {
+      method: 'POST',
+      body: JSON.stringify({ jobDescription }),
+    });
+    return response.data!;
   }
 }
 

@@ -93,7 +93,7 @@ export default function Home() {
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
               Build powerful automation pipelines to aggregate, filter, and get daily email digests 
-              of job listings from LinkedIn, Indeed, and Naukri.
+              of job listings from LinkedIn, Google Jobs, RemoteOK, Wellfound, and Naukri.
             </p>
           </div>
 
@@ -125,7 +125,7 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-3">Multi-Platform Scraping</h3>
             <p className="text-gray-600 leading-relaxed">
-              Connect to LinkedIn, Indeed, and Naukri. Aggregate jobs from multiple sources in one workflow.
+              Connect to LinkedIn, Google Jobs, RemoteOK, Wellfound & Naukri. Aggregate from 5+ sources in one workflow.
             </p>
           </div>
 

@@ -2,12 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { userService } from './user.service';
 import { UnauthorizedError } from '../../shared/middleware/error-handler';
 
-// Use Express.Request directly - extended via types/express.d.ts
-export type AuthRequest = Request;
+export interface AuthRequest extends Request {
+  userId?: string;
+  userEmail?: string;
+}
 
-/**
- * Middleware to authenticate requests using JWT
- */
 export function authenticate(
   req: AuthRequest,
   res: Response,
@@ -37,9 +36,6 @@ export function authenticate(
   }
 }
 
-/**
- * Optional authentication - doesn't fail if no token
- */
 export function optionalAuth(
   req: AuthRequest,
   res: Response,
@@ -65,10 +61,8 @@ export function optionalAuth(
 
     next();
   } catch (error) {
-    // Ignore token errors for optional auth
     next();
   }
 }
 
 export default authenticate;
-

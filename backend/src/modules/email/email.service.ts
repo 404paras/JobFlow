@@ -1,19 +1,21 @@
-import { getEmailTransporter } from '../../config/email';
+import { getEmailTransporter, createEmailTransporter } from '../../config/email';
 import { config } from '../../config';
 import { logger } from '../../shared/utils/logger';
 import { ScrapedJob, EmailPayload } from '../../shared/types';
 import { generateJobDigestHtml, generateJobDigestText } from './email.templates';
 import { Workflow } from '../workflows/workflow.model';
 
-// Simple delay helper
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Simple delay helper with jitter
+const delay = (ms: number) => new Promise(resolve => 
+  setTimeout(resolve, ms + Math.random() * 1000)
+);
 
 export class EmailService {
-  private readonly maxRetries = 3;
-  private readonly retryDelayMs = 5000; // 5 seconds between retries
+  private readonly maxRetries = 5;
+  private readonly baseDelayMs = 5000; // 5 seconds base delay
 
-  async send(payload: EmailPayload): Promise<boolean> {
-    const transporter = getEmailTransporter();
+  async send(payload: EmailPayload): Promise<{ success: boolean; error?: string }> {
+    let transporter = getEmailTransporter();
 
     const mailOptions = {
       from: config.email.from,
@@ -24,7 +26,7 @@ export class EmailService {
       attachments: payload.attachments,
     };
 
-    // Retry logic for transient failures
+    // Retry logic with exponential backoff
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         const result = await transporter.sendMail(mailOptions);
@@ -36,7 +38,7 @@ export class EmailService {
           attempt,
         });
 
-        return true;
+        return { success: true };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const isLastAttempt = attempt === this.maxRetries;
@@ -56,15 +58,25 @@ export class EmailService {
             error: errorMessage,
             attempts: attempt,
           });
-          return false;
+          return { success: false, error: errorMessage };
         }
 
-        // Wait before retry
-        await delay(this.retryDelayMs * attempt); // Exponential backoff
+        // Exponential backoff: 5s, 10s, 20s, 40s, 80s
+        const waitTime = this.baseDelayMs * Math.pow(2, attempt - 1);
+        logger.info(`Waiting ${waitTime}ms before retry...`);
+        await delay(waitTime);
+
+        // On connection errors, recreate the transporter
+        if (errorMessage.toLowerCase().includes('connection') || 
+            errorMessage.toLowerCase().includes('socket') ||
+            errorMessage.toLowerCase().includes('timeout')) {
+          logger.info('Recreating email transporter due to connection error...');
+          transporter = createEmailTransporter();
+        }
       }
     }
 
-    return false;
+    return { success: false, error: 'Max retries exceeded' };
   }
 
   private isRetryableError(errorMessage: string): boolean {
@@ -77,6 +89,10 @@ export class EmailService {
       'socket',
       'temporary',
       'try again',
+      'ENOTFOUND',
+      'EHOSTUNREACH',
+      'service unavailable',
+      'too many connections',
     ];
     
     return retryablePatterns.some(pattern => 
@@ -88,23 +104,28 @@ export class EmailService {
     recipients: string,
     jobs: ScrapedJob[],
     workflowId: string
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string }> {
+    if (jobs.length === 0) {
+      logger.info('No jobs to send in digest', { workflowId });
+      return { success: true };
+    }
+
     const subject = `🚀 Your Daily Job Digest - ${jobs.length} New Jobs`;
     const html = generateJobDigestHtml(jobs, workflowId);
     const text = generateJobDigestText(jobs, workflowId);
 
-    const success = await this.send({
+    const result = await this.send({
       to: recipients,
       subject,
       html,
       text,
     });
 
-    if (success) {
+    if (result.success) {
       await this.updateEmailStats(workflowId);
     }
 
-    return success;
+    return result;
   }
 
   private async updateEmailStats(workflowId: string): Promise<void> {
@@ -124,7 +145,7 @@ export class EmailService {
     }
   }
 
-  async sendTestEmail(to: string): Promise<boolean> {
+  async sendTestEmail(to: string): Promise<{ success: boolean; error?: string }> {
     return this.send({
       to,
       subject: '🧪 Test Email from JobFlow',

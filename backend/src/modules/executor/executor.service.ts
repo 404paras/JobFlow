@@ -75,25 +75,22 @@ class JobSourceNodeHandler implements NodeHandler {
 class NormalizeNodeHandler implements NodeHandler {
   async execute(node: WorkflowNode, context: ExecutionContext): Promise<void> {
     const metadata = node.data.metadata || {};
+    const beforeCount = context.jobs.length;
     
-    const config: NormalizationConfig = {
-      fieldMapping: this.mapFieldMapping(metadata.fieldMapping),
-      dataFormat: this.mapDataFormat(metadata.dataFormat),
-      removeDuplicates: metadata.removeDuplicates === 'Yes',
-      textCleaning: this.mapTextCleaning(metadata.textCleaning),
-    };
+    // Check if deduplication is enabled (default: Yes)
+    const removeDuplicates = metadata.removeDuplicates !== 'No';
 
-    if (config.textCleaning !== 'none') {
-      context.jobs = context.jobs.map((job) => ({
-        ...job,
-        title: this.cleanText(job.title, config.textCleaning),
-        company: this.cleanText(job.company, config.textCleaning),
-        location: this.cleanText(job.location, config.textCleaning),
-        description: job.description?.trim().replace(/\s+/g, ' ') || '',
-      }));
-    }
+    // Always clean text (trim whitespace, normalize spaces)
+    context.jobs = context.jobs.map((job) => ({
+      ...job,
+      title: job.title?.trim().replace(/\s+/g, ' ') || '',
+      company: job.company?.trim().replace(/\s+/g, ' ') || '',
+      location: job.location?.trim().replace(/\s+/g, ' ') || '',
+      description: job.description?.trim().replace(/\s+/g, ' ').substring(0, 500) || '',
+    }));
 
-    if (config.removeDuplicates) {
+    // Remove duplicates based on title + company (case-insensitive)
+    if (removeDuplicates) {
       const seen = new Set<string>();
       context.jobs = context.jobs.filter((job) => {
         const key = `${job.title.toLowerCase()}-${job.company.toLowerCase()}`;
@@ -103,47 +100,19 @@ class NormalizeNodeHandler implements NodeHandler {
       });
     }
 
-    if (config.fieldMapping === 'auto') {
-      context.jobs = context.jobs.map((job) => ({
-        ...job,
-        salary: job.salary?.replace(/(\d+)k/gi, '$1000'),
-        location: job.location
-          .split(' ')
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-          .join(' '),
-      }));
-    }
+    // Sort by posted date (latest first)
+    context.jobs.sort((a, b) => {
+      const dateA = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+      const dateB = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
-    logger.info('Jobs normalized', { count: context.jobs.length, nodeId: node.id });
-  }
-
-  private mapFieldMapping(value: string): 'auto' | 'manual' | 'custom' {
-    if (value === 'Auto-detect Fields') return 'auto';
-    if (value === 'Manual Mapping') return 'manual';
-    if (value === 'Custom Schema') return 'custom';
-    return 'auto';
-  }
-
-  private mapDataFormat(value: string): 'json' | 'csv' | 'xml' {
-    if (value === 'JSON') return 'json';
-    if (value === 'CSV') return 'csv';
-    if (value === 'XML') return 'xml';
-    return 'json';
-  }
-
-  private mapTextCleaning(value: string): 'standard' | 'aggressive' | 'none' {
-    if (value === 'Standard') return 'standard';
-    if (value === 'Aggressive') return 'aggressive';
-    if (value === 'None') return 'none';
-    return 'standard';
-  }
-
-  private cleanText(text: string, level: 'standard' | 'aggressive' | 'none'): string {
-    if (level === 'none') return text;
-    if (level === 'aggressive') {
-      return text?.trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ') || '';
-    }
-    return text?.trim().replace(/\s+/g, ' ') || '';
+    logger.info('Jobs normalized', { 
+      before: beforeCount,
+      after: context.jobs.length,
+      duplicatesRemoved: beforeCount - context.jobs.length,
+      nodeId: node.id,
+    });
   }
 }
 
@@ -152,22 +121,53 @@ class FilterNodeHandler implements NodeHandler {
     const metadata = node.data.metadata || {};
     const filters = metadata.filters || [];
 
-    const criteria: FilterCriteria = {};
+    // Parse filters into criteria with support for comma-separated values
+    const titleKeywords: string[] = [];
+    const companyKeywords: string[] = [];
+    const locationKeywords: string[] = [];
+    let minSalary: number | undefined;
+    const sourceFilters: string[] = [];
+    let experienceLevel: string | undefined;
+    let datePosted: string | undefined;
 
     for (const filter of filters) {
       if (typeof filter === 'string') {
-        if (filter.startsWith('Title:')) criteria.title = filter.replace('Title: ', '');
-        if (filter.startsWith('Company:')) criteria.company = filter.replace('Company: ', '');
-        if (filter.startsWith('Location:')) criteria.location = filter.replace('Location: ', '');
-        if (filter.startsWith('Salary:')) {
-          const salary = filter.replace('Salary: ', '').replace('+', '');
-          criteria.minSalary = parseInt(salary.replace(/[^\d]/g, ''), 10) || undefined;
-        }
-        if (filter.startsWith('Source:')) {
-          const source = filter.replace('Source: ', '').toLowerCase();
-          if (['linkedin', 'indeed', 'naukri'].includes(source)) {
-            criteria.source = source as JobSource;
-          }
+        // Parse format: "Type: value1, value2" or "Type:value1,value2"
+        const colonIndex = filter.indexOf(':');
+        if (colonIndex === -1) continue;
+
+        const type = filter.substring(0, colonIndex).trim().toLowerCase();
+        const value = filter.substring(colonIndex + 1).trim();
+
+        // Split by comma and clean each value
+        const values = value.split(',').map(v => v.trim().toLowerCase()).filter(v => v);
+
+        switch (type) {
+          case 'title':
+            titleKeywords.push(...values);
+            break;
+          case 'company':
+            companyKeywords.push(...values);
+            break;
+          case 'location':
+            locationKeywords.push(...values);
+            break;
+          case 'salary':
+            const salaryNum = parseInt(value.replace(/[^\d]/g, ''), 10);
+            if (salaryNum) minSalary = salaryNum;
+            break;
+          case 'source':
+            sourceFilters.push(...values);
+            break;
+          case 'experience':
+          case 'level':
+            experienceLevel = values[0];
+            break;
+          case 'date':
+          case 'posted':
+          case 'dateposted':
+            datePosted = values[0];
+            break;
         }
       }
     }
@@ -175,39 +175,108 @@ class FilterNodeHandler implements NodeHandler {
     const beforeCount = context.jobs.length;
 
     context.jobs = context.jobs.filter((job) => {
-      if (criteria.title && !job.title.toLowerCase().includes(criteria.title.toLowerCase())) {
-        return false;
+      // Title filter - match ANY keyword (OR logic)
+      if (titleKeywords.length > 0) {
+        const jobTitle = job.title.toLowerCase();
+        if (!titleKeywords.some(kw => jobTitle.includes(kw))) {
+          return false;
+        }
       }
-      if (criteria.company && !job.company.toLowerCase().includes(criteria.company.toLowerCase())) {
-        return false;
+
+      // Company filter - match ANY keyword (OR logic)
+      if (companyKeywords.length > 0) {
+        const jobCompany = job.company.toLowerCase();
+        if (!companyKeywords.some(kw => jobCompany.includes(kw))) {
+          return false;
+        }
       }
-      if (criteria.location && !job.location.toLowerCase().includes(criteria.location.toLowerCase())) {
-        return false;
+
+      // Location filter - match ANY keyword (OR logic)
+      if (locationKeywords.length > 0) {
+        const jobLocation = job.location.toLowerCase();
+        if (!locationKeywords.some(kw => jobLocation.includes(kw))) {
+          return false;
+        }
       }
-      if (criteria.minSalary && job.salary) {
+
+      // Salary filter - minimum salary
+      if (minSalary && job.salary) {
         const salary = this.extractSalary(job.salary);
-        if (salary < criteria.minSalary) return false;
+        if (salary < minSalary) return false;
       }
-      if (criteria.source && criteria.source !== 'any') {
-        if (job.source !== criteria.source) return false;
+
+      // Source filter - match ANY source (OR logic)
+      if (sourceFilters.length > 0) {
+        if (!sourceFilters.includes(job.source)) {
+          return false;
+        }
       }
+
+      // Experience level filter
+      if (experienceLevel && experienceLevel !== 'any') {
+        const detectedLevel = this.detectExperienceLevel(job.title + ' ' + (job.description || ''));
+        if (detectedLevel !== experienceLevel && detectedLevel !== 'any') {
+          return false;
+        }
+      }
+
+      // Date posted filter
+      if (datePosted && datePosted !== 'any') {
+        const jobDate = job.postedAt ? new Date(job.postedAt) : new Date();
+        const now = new Date();
+        const diffHours = (now.getTime() - jobDate.getTime()) / (1000 * 60 * 60);
+        
+        switch (datePosted) {
+          case '24h':
+            if (diffHours > 24) return false;
+            break;
+          case 'week':
+            if (diffHours > 24 * 7) return false;
+            break;
+          case 'month':
+            if (diffHours > 24 * 30) return false;
+            break;
+        }
+      }
+
       return true;
     });
 
     logger.info('Jobs filtered', {
       before: beforeCount,
       after: context.jobs.length,
+      criteria: { titleKeywords, companyKeywords, locationKeywords, minSalary, sourceFilters, experienceLevel, datePosted },
       nodeId: node.id,
     });
   }
 
   private extractSalary(salaryString: string): number {
-    const cleaned = salaryString.replace(/[^\d.]/g, '');
-    let salary = parseFloat(cleaned) || 0;
-    if (salaryString.toLowerCase().includes('k')) {
+    // Handle formats: "$100k", "100K", "$100,000", "100000"
+    const cleaned = salaryString.replace(/[$,]/g, '');
+    const match = cleaned.match(/(\d+(?:\.\d+)?)\s*k?/i);
+    if (!match) return 0;
+    
+    let salary = parseFloat(match[1]) || 0;
+    if (cleaned.toLowerCase().includes('k')) {
       salary *= 1000;
     }
     return salary;
+  }
+
+  private detectExperienceLevel(text: string): string {
+    const lowerText = text.toLowerCase();
+    
+    if (lowerText.includes('senior') || lowerText.includes('sr.') || lowerText.includes('lead') || lowerText.includes('principal') || lowerText.includes('staff')) {
+      return 'senior';
+    }
+    if (lowerText.includes('junior') || lowerText.includes('jr.') || lowerText.includes('entry') || lowerText.includes('fresher') || lowerText.includes('intern') || lowerText.includes('graduate')) {
+      return 'entry';
+    }
+    if (lowerText.includes('mid') || lowerText.includes('intermediate')) {
+      return 'mid';
+    }
+    
+    return 'any';
   }
 }
 
@@ -226,7 +295,16 @@ class DailyEmailNodeHandler implements NodeHandler {
       return;
     }
 
-    await emailService.sendJobDigest(recipients, context.jobs, context.workflowId);
+    const result = await emailService.sendJobDigest(recipients, context.jobs, context.workflowId);
+
+    if (!result.success) {
+      logger.error('Email sending failed', {
+        recipients,
+        error: result.error,
+        nodeId: node.id,
+      });
+      throw new Error(`Failed to send email: ${result.error || 'Unknown error'}`);
+    }
 
     logger.info('Email sent', {
       recipients,

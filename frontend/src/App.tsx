@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./contexts/AuthContext"
+import { Toaster } from "./components/ui/sonner"
 import Home from "./pages/Home"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
@@ -82,6 +83,7 @@ function App() {
     <Router>
       <AuthProvider>
         <AppRoutes />
+        <Toaster position="top-right" richColors closeButton />
       </AuthProvider>
     </Router>
   )

@@ -2,11 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { createRequestLogger } from '../utils/logger';
 
-/**
- * Middleware that adds request logging and correlation IDs
- */
+interface RequestWithLogger extends Request {
+  requestId?: string;
+  startTime?: number;
+}
+
 export function requestLogger(
-  req: Request,
+  req: RequestWithLogger,
   res: Response,
   next: NextFunction
 ): void {
@@ -40,18 +42,14 @@ export function requestLogger(
   next();
 }
 
-/**
- * Skip logging for certain paths (like health checks)
- */
 export function requestLoggerWithSkip(skipPaths: string[] = ['/health']) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (skipPaths.includes(req.path)) {
       return next();
     }
     
-    requestLogger(req, res, next);
+    requestLogger(req as RequestWithLogger, res, next);
   };
 }
 
 export default requestLogger;
-

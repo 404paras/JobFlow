@@ -16,6 +16,9 @@ import type { Workflow } from '../lib/types';
 import { api } from '../lib/api';
 import { Trash2, Play, Square, LogOut, Plus, Mail, FileText, AlertCircle, Clock, Info, Zap, ZapOff } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialog';
+import { ResumeUpload } from '../components/ResumeUpload';
+import { toast } from 'sonner';
+import { FEATURES } from '../config/features';
 
 export default function WorkflowList() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -40,8 +43,11 @@ export default function WorkflowList() {
     try {
       const response = await api.getWorkflows(1, 50);
       setWorkflows(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load workflows:', error);
+      toast.error('Failed to load workflows', {
+        description: error.message || 'Please check your connection and try again.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -51,8 +57,9 @@ export default function WorkflowList() {
     try {
       const running = await api.getRunningWorkflows();
       setRunningWorkflows(new Set(running.map((w) => w.workflowId)));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load running workflows:', error);
+      // Silent fail for polling - don't spam user with errors
     }
   };
 
@@ -66,8 +73,14 @@ export default function WorkflowList() {
     try {
       await api.deleteWorkflow(deleteDialog.workflowId);
       setWorkflows(workflows.filter((w) => w.workflowId !== deleteDialog.workflowId));
-    } catch (error) {
+      toast.success('Workflow deleted', {
+        description: `"${deleteDialog.title}" has been deleted.`,
+      });
+    } catch (error: any) {
       console.error('Failed to delete workflow:', error);
+      toast.error('Failed to delete workflow', {
+        description: error.message || 'Please try again.',
+      });
     } finally {
       setDeleteDialog(null);
     }
@@ -77,12 +90,16 @@ export default function WorkflowList() {
     const workflow = workflows.find(w => w.workflowId === workflowId);
     
     if (!workflow?.isActive) {
-      setErrorDialog({ open: true, message: 'Please activate this workflow first before running.' });
+      toast.warning('Workflow not active', {
+        description: 'Please activate this workflow first before running.',
+      });
       return;
     }
     
     if (runningWorkflows.size > 0) {
-      setErrorDialog({ open: true, message: 'You can only run one workflow at a time. Please stop the running workflow first.' });
+      toast.warning('Another workflow is running', {
+        description: 'You can only run one workflow at a time. Please stop the running workflow first.',
+      });
       return;
     }
 
@@ -90,8 +107,14 @@ export default function WorkflowList() {
     try {
       await api.executeWorkflow(workflowId);
       setRunningWorkflows(new Set([workflowId]));
+      toast.success('Workflow started', {
+        description: 'Your workflow is now running. You will receive an email once complete.',
+      });
     } catch (error: any) {
-      setErrorDialog({ open: true, message: error.message || 'Failed to execute workflow' });
+      console.error('Workflow execution failed:', error);
+      toast.error('Workflow execution failed', {
+        description: error.message || 'An unexpected error occurred. Please try again.',
+      });
     } finally {
       setExecutingWorkflow(null);
     }
@@ -105,8 +128,14 @@ export default function WorkflowList() {
         next.delete(workflowId);
         return next;
       });
-    } catch (error) {
+      toast.info('Workflow stopped', {
+        description: 'The workflow has been stopped.',
+      });
+    } catch (error: any) {
       console.error('Failed to stop workflow:', error);
+      toast.error('Failed to stop workflow', {
+        description: error.message || 'Please try again.',
+      });
     }
   };
 
@@ -119,8 +148,13 @@ export default function WorkflowList() {
           ? { ...w, isActive: true, activatedAt: updated.activatedAt, deactivatesAt: updated.deactivatesAt }
           : { ...w, isActive: false, activatedAt: undefined, deactivatesAt: undefined }
       ));
+      toast.success('Workflow activated', {
+        description: 'This workflow will auto-deactivate after 2 days.',
+      });
     } catch (error: any) {
-      setErrorDialog({ open: true, message: error.message || 'Failed to activate workflow' });
+      toast.error('Failed to activate workflow', {
+        description: error.message || 'Please try again.',
+      });
     } finally {
       setActivatingWorkflow(null);
     }
@@ -135,8 +169,13 @@ export default function WorkflowList() {
           ? { ...w, isActive: false, activatedAt: undefined, deactivatesAt: undefined }
           : w
       ));
+      toast.info('Workflow deactivated', {
+        description: 'You can reactivate it anytime.',
+      });
     } catch (error: any) {
-      setErrorDialog({ open: true, message: error.message || 'Failed to deactivate workflow' });
+      toast.error('Failed to deactivate workflow', {
+        description: error.message || 'Please try again.',
+      });
     } finally {
       setActivatingWorkflow(null);
     }
@@ -200,7 +239,7 @@ export default function WorkflowList() {
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Anonymous Feedback Dialog */}
+            {isAuthenticated && FEATURES.RESUME_UPLOAD && <ResumeUpload />}
             <FeedbackDialog />
 
             {isAuthenticated && (

@@ -45,9 +45,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    api.logout();
+    // Navigate first to prevent ProtectedRoute from redirecting to /login
+    navigate('/', { replace: true });
+    // Then clear user state
     setUser(null);
-    navigate('/');  // Redirect to home page on logout
+    api.logout();
   };
 
   return (

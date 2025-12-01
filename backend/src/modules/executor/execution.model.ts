@@ -1,10 +1,6 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 import { ExecutionStatus, ExecutionLog, NodeType } from '../../shared/types';
 
-// ============================================
-// Interface
-// ============================================
-
 export interface IExecution {
   executionId: string;
   workflowId: string;
@@ -23,10 +19,6 @@ export interface IExecution {
 }
 
 export interface IExecutionDocument extends IExecution, Document {}
-
-// ============================================
-// Schema
-// ============================================
 
 const NodeLogSchema = new Schema({
   nodeId: { type: String, required: true },
@@ -72,31 +64,16 @@ const ExecutionSchema = new Schema<IExecutionDocument>(
       required: true,
       index: true,
     },
-    completedAt: {
-      type: Date,
-    },
-    duration: {
-      type: Number,
-    },
+    completedAt: { type: Date },
+    duration: { type: Number },
     nodeLogs: {
       type: [NodeLogSchema],
       default: [],
     },
-    jobsScraped: {
-      type: Number,
-      default: 0,
-    },
-    jobsFiltered: {
-      type: Number,
-      default: 0,
-    },
-    emailsSent: {
-      type: Number,
-      default: 0,
-    },
-    error: {
-      type: String,
-    },
+    jobsScraped: { type: Number, default: 0 },
+    jobsFiltered: { type: Number, default: 0 },
+    emailsSent: { type: Number, default: 0 },
+    error: { type: String },
     triggeredBy: {
       type: String,
       enum: ['schedule', 'manual', 'api'],
@@ -115,16 +92,8 @@ const ExecutionSchema = new Schema<IExecutionDocument>(
   }
 );
 
-// ============================================
-// Indexes
-// ============================================
-
 ExecutionSchema.index({ workflowId: 1, startedAt: -1 });
 ExecutionSchema.index({ status: 1, startedAt: -1 });
-
-// ============================================
-// Methods
-// ============================================
 
 ExecutionSchema.methods.complete = function (this: IExecutionDocument) {
   this.status = 'completed';
@@ -141,23 +110,13 @@ ExecutionSchema.methods.fail = function (this: IExecutionDocument, error: string
   return this.save();
 };
 
-// ============================================
-// Static Methods
-// ============================================
-
 ExecutionSchema.statics.findByWorkflowId = function (workflowId: string, limit = 10) {
-  return this.find({ workflowId })
-    .sort({ startedAt: -1 })
-    .limit(limit);
+  return this.find({ workflowId }).sort({ startedAt: -1 }).limit(limit);
 };
 
 ExecutionSchema.statics.getLatestExecution = function (workflowId: string) {
   return this.findOne({ workflowId }).sort({ startedAt: -1 });
 };
-
-// ============================================
-// Export
-// ============================================
 
 export const Execution: Model<IExecutionDocument> = mongoose.model<IExecutionDocument>(
   'Execution',
@@ -165,4 +124,3 @@ export const Execution: Model<IExecutionDocument> = mongoose.model<IExecutionDoc
 );
 
 export default Execution;
-

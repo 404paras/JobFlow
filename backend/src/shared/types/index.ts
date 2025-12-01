@@ -1,20 +1,11 @@
-// ============================================
-// Common Types
-// ============================================
-
-export type JobSource = 'linkedin' | 'indeed' | 'naukri';
-
+export type JobSource = 'linkedin' | 'remoteok' | 'naukri' | 'google' | 'wellfound';
+export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'any';
+export type DatePosted = 'any' | '24h' | 'week' | 'month';
 export type WorkflowStatus = 'draft' | 'published' | 'paused';
-
 export type NodeType = 'trigger' | 'job-source' | 'normalize-data' | 'filter' | 'daily-email';
-
 export type EmailSchedule = 'daily-9am' | 'daily-6pm' | 'weekly';
-
 export type EmailFormat = 'html' | 'plain' | 'pdf';
-
-// ============================================
-// Workflow Node Types
-// ============================================
+export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 export interface WorkflowNodePosition {
   x: number;
@@ -44,10 +35,6 @@ export interface WorkflowEdge {
   targetHandle?: string | null;
 }
 
-// ============================================
-// Job Types
-// ============================================
-
 export interface JobListing {
   uid: string;
   title: string;
@@ -75,12 +62,11 @@ export interface ScrapedJob {
   url: string;
   source: JobSource;
   postedAt: Date;
+  experienceLevel?: ExperienceLevel;
+  tags?: string[];
+  remote?: boolean;
   raw?: Record<string, any>;
 }
-
-// ============================================
-// Filter & Normalize Types
-// ============================================
 
 export interface FilterCriteria {
   title?: string;
@@ -88,6 +74,9 @@ export interface FilterCriteria {
   location?: string;
   minSalary?: number;
   source?: JobSource | 'any';
+  experienceLevel?: ExperienceLevel;
+  datePosted?: DatePosted;
+  remote?: boolean;
 }
 
 export interface NormalizationConfig {
@@ -96,10 +85,6 @@ export interface NormalizationConfig {
   removeDuplicates: boolean;
   textCleaning: 'standard' | 'aggressive' | 'none';
 }
-
-// ============================================
-// Quality Check Types
-// ============================================
 
 export interface QualityCheckResult {
   isValid: boolean;
@@ -129,10 +114,6 @@ export interface QualityConfig {
   strictMode: boolean;
 }
 
-// ============================================
-// Execution Types
-// ============================================
-
 export interface ExecutionContext {
   workflowId: string;
   executionId: string;
@@ -152,12 +133,6 @@ export interface ExecutionLog {
   error?: string;
   metadata?: Record<string, any>;
 }
-
-export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed';
-
-// ============================================
-// Email Types
-// ============================================
 
 export interface EmailConfig {
   recipients: string;
@@ -179,10 +154,6 @@ export interface EmailPayload {
     content: Buffer | string;
   }>;
 }
-
-// ============================================
-// API Types
-// ============================================
 
 export interface PaginationParams {
   page: number;
@@ -209,6 +180,3 @@ export interface ApiResponse<T = any> {
   error?: string;
   errors?: Array<{ field: string; message: string }>;
 }
-
-// Request extensions are defined in src/types/express.d.ts
-
