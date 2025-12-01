@@ -114,8 +114,15 @@ export class LinkedInScraper implements IScraper {
       logger.error('LinkedIn scrape failed', { error: message });
     }
 
+    // Sort by date (latest first) before limiting
+    const sortedJobs = jobs.sort((a, b) => {
+      const dateA = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+      const dateB = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+      return dateB - dateA; // Latest first
+    });
+
     return {
-      jobs: jobs.slice(0, maxResults),
+      jobs: sortedJobs.slice(0, maxResults),
       source: this.source,
       totalFound: jobs.length,
       scrapedAt: new Date(),

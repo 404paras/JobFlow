@@ -3,9 +3,92 @@ import { User } from '../users/user.model';
 import { CreateWorkflowInput, UpdateWorkflowInput, WorkflowQueryParams } from './workflow.schema';
 import { NotFoundError, ConflictError } from '../../shared/middleware/error-handler';
 import { logger } from '../../shared/utils/logger';
-import { PaginatedResponse } from '../../shared/types';
+import { PaginatedResponse, WorkflowNode, WorkflowEdge } from '../../shared/types';
 
 export class WorkflowService {
+  /**
+   * Deduplicate email nodes with same configuration.
+   * If multiple email nodes have same recipients/schedule/format, merge them into one
+   * and redirect all incoming edges to the single node.
+   */
+  private deduplicateEmailNodes(
+    nodes: WorkflowNode[],
+    edges: WorkflowEdge[]
+  ): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+    // Find all email nodes
+    const emailNodes = nodes.filter(n => n.data?.type === 'daily-email');
+    
+    if (emailNodes.length <= 1) {
+      return { nodes, edges };
+    }
+
+    // Group email nodes by their config signature
+    const emailGroups = new Map<string, WorkflowNode[]>();
+    
+    for (const node of emailNodes) {
+      const metadata = node.data.metadata || {};
+      // Create a signature from the email config
+      const signature = JSON.stringify({
+        recipients: (metadata.recipients || '').toLowerCase().trim(),
+        schedule: metadata.schedule || 'Daily at 9 AM',
+        format: metadata.format || 'HTML',
+      });
+      
+      if (!emailGroups.has(signature)) {
+        emailGroups.set(signature, []);
+      }
+      emailGroups.get(signature)!.push(node);
+    }
+
+    // Find duplicates and merge
+    const nodesToRemove = new Set<string>();
+    const edgeUpdates = new Map<string, string>(); // oldNodeId -> newNodeId
+
+    for (const [, group] of emailGroups) {
+      if (group.length > 1) {
+        // Keep the first node, remove the rest
+        const keepNode = group[0];
+        
+        for (let i = 1; i < group.length; i++) {
+          const duplicateNode = group[i];
+          nodesToRemove.add(duplicateNode.id);
+          edgeUpdates.set(duplicateNode.id, keepNode.id);
+        }
+
+        logger.info('Merged duplicate email nodes', {
+          keptNodeId: keepNode.id,
+          removedCount: group.length - 1,
+          recipients: keepNode.data.metadata?.recipients,
+        });
+      }
+    }
+
+    if (nodesToRemove.size === 0) {
+      return { nodes, edges };
+    }
+
+    // Filter out removed nodes
+    const filteredNodes = nodes.filter(n => !nodesToRemove.has(n.id));
+
+    // Update edges: redirect edges pointing to removed nodes
+    const updatedEdges = edges
+      .map(edge => {
+        const newTarget = edgeUpdates.get(edge.target);
+        if (newTarget) {
+          return { ...edge, target: newTarget };
+        }
+        return edge;
+      })
+      // Remove duplicate edges (same source -> same target)
+      .filter((edge, index, self) => {
+        const key = `${edge.source}-${edge.target}`;
+        return index === self.findIndex(e => `${e.source}-${e.target}` === key);
+      })
+      // Remove edges from removed nodes
+      .filter(edge => !nodesToRemove.has(edge.source));
+
+    return { nodes: filteredNodes, edges: updatedEdges };
+  }
   async create(data: CreateWorkflowInput, userId?: string): Promise<IWorkflowDocument> {
     const existing = await Workflow.findOne({ workflowId: data.workflowId });
     if (existing) {
@@ -20,11 +103,19 @@ export class WorkflowService {
       }
     }
 
+    // Deduplicate email nodes with same config
+    const { nodes, edges } = this.deduplicateEmailNodes(
+      (data.nodes || []) as WorkflowNode[],
+      (data.edges || []) as WorkflowEdge[]
+    );
+
     const workflow = new Workflow({
       ...data,
+      nodes,
+      edges,
       userId,
       userEmail,
-      nodeCount: data.nodes?.length || 0,
+      nodeCount: nodes.length,
     });
 
     await workflow.save();
@@ -103,11 +194,20 @@ export class WorkflowService {
     if (data.status !== undefined) {
       workflow.status = data.status;
     }
-    if (data.nodes !== undefined) {
-      workflow.nodes = data.nodes as any;
-      workflow.nodeCount = data.nodes.length;
+    if (data.nodes !== undefined || data.edges !== undefined) {
+      // Get current or new nodes/edges
+      const inputNodes = (data.nodes || workflow.nodes) as WorkflowNode[];
+      const inputEdges = (data.edges || workflow.edges) as WorkflowEdge[];
       
-      const emailNode = data.nodes.find((n: any) => n.data?.type === 'daily-email');
+      // Deduplicate email nodes with same config
+      const { nodes, edges } = this.deduplicateEmailNodes(inputNodes, inputEdges);
+      
+      workflow.nodes = nodes as any;
+      workflow.edges = edges as any;
+      workflow.nodeCount = nodes.length;
+      
+      // Update email config from the (possibly merged) email node
+      const emailNode = nodes.find((n: any) => n.data?.type === 'daily-email');
       if (emailNode?.data?.metadata) {
         const metadata = emailNode.data.metadata;
         workflow.emailConfig = {
@@ -121,9 +221,6 @@ export class WorkflowService {
           isActive: workflow.status === 'published',
         } as any;
       }
-    }
-    if (data.edges !== undefined) {
-      workflow.edges = data.edges as any;
     }
     if (data.emailConfig !== undefined) {
       workflow.emailConfig = {
