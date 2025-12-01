@@ -74,7 +74,7 @@ const JobListingSchema = new Schema<IJobListingDocument>(
     },
     source: {
       type: String,
-      enum: ['linkedin', 'indeed', 'naukri'],
+      enum: ['linkedin', 'naukri', 'remoteok', 'google', 'wellfound'],
       required: true,
       index: true,
     },

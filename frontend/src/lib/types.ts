@@ -7,8 +7,33 @@ export type User = {
   email: string;
   name: string;
   isActive: boolean;
+  isAdmin?: boolean;
+  workflowCount?: number;
+  lastLoginAt?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type Feedback = {
+  _id: string;
+  type: 'bug' | 'feature' | 'improvement' | 'other';
+  message: string;
+  rating?: number;
+  userEmail?: string;
+  userId?: { name: string; email: string };
+  status: 'new' | 'reviewed' | 'resolved';
+  adminNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminStats = {
+  users: { total: number; active: number };
+  workflows: { total: number; published: number };
+  feedback: { total: number; new: number };
+  recentUsers: User[];
+  recentWorkflows: Workflow[];
+  dailySignups: { _id: string; count: number }[];
 };
 
 export type AuthResponse = {

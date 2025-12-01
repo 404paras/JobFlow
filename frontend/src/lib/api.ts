@@ -2,7 +2,11 @@ import type { User, AuthResponse, Workflow, Execution } from './types';
 
 export type { User, AuthResponse, Workflow, Execution };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:6000/api';
+// In production, use relative /api path (proxied by Vercel)
+// In development, use direct backend URL
+const API_BASE_URL = import.meta.env.PROD 
+  ? '/api' 
+  : (import.meta.env.VITE_API_URL || 'http://localhost:6000/api');
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -290,6 +294,56 @@ class ApiClient {
       body: JSON.stringify({ jobDescription }),
     });
     return response.data!;
+  }
+
+  // Feedback
+  async submitFeedback(type: string, message: string, rating?: number, email?: string): Promise<void> {
+    await this.request('/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ type, message, rating, email }),
+    });
+  }
+
+  // Admin endpoints
+  async getAdminStats(): Promise<any> {
+    const response = await this.request<any>('/admin/stats');
+    return response.data!;
+  }
+
+  async getAdminUsers(page = 1, limit = 20): Promise<PaginatedResponse<any>> {
+    const response = await this.request<PaginatedResponse<any>>(
+      `/admin/users?page=${page}&limit=${limit}`
+    );
+    return response as unknown as PaginatedResponse<any>;
+  }
+
+  async toggleUserActive(userId: string): Promise<{ isActive: boolean }> {
+    const response = await this.request<any>(`/admin/users/${userId}/toggle-active`, {
+      method: 'PATCH',
+    });
+    return response.data!;
+  }
+
+  async getAdminFeedbacks(page = 1, limit = 20, status?: string): Promise<PaginatedResponse<any>> {
+    let url = `/admin/feedbacks?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    const response = await this.request<PaginatedResponse<any>>(url);
+    return response as unknown as PaginatedResponse<any>;
+  }
+
+  async updateFeedback(id: string, data: { status?: string; adminNotes?: string }): Promise<any> {
+    const response = await this.request<any>(`/admin/feedbacks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return response.data!;
+  }
+
+  async getAdminWorkflows(page = 1, limit = 20): Promise<PaginatedResponse<any>> {
+    const response = await this.request<PaginatedResponse<any>>(
+      `/admin/workflows?page=${page}&limit=${limit}`
+    );
+    return response as unknown as PaginatedResponse<any>;
   }
 }
 

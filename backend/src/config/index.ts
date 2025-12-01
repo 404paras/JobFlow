@@ -14,12 +14,14 @@ interface Config {
     url: string;
   };
   email: {
+    provider: 'smtp' | 'resend';
     host: string;
     port: number;
     secure: boolean;
     user: string;
     pass: string;
     from: string;
+    resendApiKey: string;
   };
   scraper: {
     timeout: number;
@@ -59,13 +61,14 @@ export const config: Config = {
   },
   
   email: {
+    provider: (process.env.EMAIL_PROVIDER || 'resend') as 'smtp' | 'resend',
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    // Default to port 465 with SSL for better cloud compatibility
     port: parseInt(process.env.SMTP_PORT || '465', 10),
-    secure: process.env.SMTP_SECURE !== 'false', // Default to true for SSL
+    secure: process.env.SMTP_SECURE !== 'false',
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
-    from: process.env.EMAIL_FROM || 'Job Alerts <noreply@example.com>',
+    from: process.env.EMAIL_FROM || 'JobFlow <onboarding@resend.dev>',
+    resendApiKey: process.env.RESEND_API_KEY || '',
   },
   
   scraper: {

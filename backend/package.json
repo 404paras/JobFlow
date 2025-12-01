@@ -11,9 +11,17 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:admin": "ts-node src/scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^6.4.17",
     "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
     "cheerio": "^1.1.2",
@@ -27,16 +35,10 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.11",
     "p-retry": "^6.2.0",
+    "resend": "^6.5.2",
+    "typescript": "^5.7.0",
     "winston": "^3.17.0",
-    "zod": "^3.24.0",
-    "@types/bcrypt": "^5.0.2",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.5",
-    "@types/jsonwebtoken": "^9.0.9",
-    "@types/node": "^22.0.0",
-    "@types/node-cron": "^3.0.11",
-    "@types/nodemailer": "^6.4.17",
-    "typescript": "^5.7.0"
+    "zod": "^3.24.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.11",

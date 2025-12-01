@@ -13,6 +13,8 @@ import userRoutes from './modules/users/user.routes';
 import executorRoutes from './modules/executor/executor.routes';
 import schedulerRoutes from './modules/scheduler/scheduler.routes';
 import resumeRoutes from './modules/resume/resume.routes';
+import feedbackRoutes from './modules/feedback/feedback.routes';
+import adminRoutes from './modules/admin/admin.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -91,6 +93,8 @@ export function createApp(): Application {
   app.use('/api/execute', executorRoutes);
   app.use('/api/scheduler', schedulerRoutes);
   app.use('/api/resume', resumeRoutes);
+  app.use('/api/feedback', feedbackRoutes);
+  app.use('/api/admin', adminRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

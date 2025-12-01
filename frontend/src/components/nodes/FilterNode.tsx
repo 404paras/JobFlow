@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { Filter } from 'lucide-react';
+import { Filter, Check } from 'lucide-react';
 
 interface FilterNodeProps {
   data: {
@@ -9,52 +9,68 @@ interface FilterNodeProps {
       filters?: string[];
     };
   };
+  selected?: boolean;
 }
 
-const handleStyle = {
-  width: '10px',
-  height: '10px',
-  background: '#fff',
-  border: '2px solid #f97316',
-};
+export const FilterNode = ({ data, selected }: FilterNodeProps) => {
+  const filters = data.metadata?.filters || [];
 
-export const FilterNode = ({ data }: FilterNodeProps) => {
   return (
-    <div
-      style={{
-        background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
-        color: 'white',
-        padding: '8px 12px',
-        borderRadius: '8px',
-        border: 'none',
-        fontWeight: '500',
-        fontSize: '0.7rem',
-        minWidth: '100px',
-        maxWidth: '160px',
-        textAlign: 'center',
-        boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
-        cursor: 'pointer',
-        transition: 'transform 0.2s',
-        position: 'relative',
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-    >
-      <Handle type="target" position={Position.Left} style={handleStyle} />
-      <div className="flex items-center justify-center gap-1 font-semibold mb-1">
-        <Filter size={12} />
-        <span>Filter</span>
-      </div>
-      {data.metadata?.filters && data.metadata.filters.length > 0 && (
-        <div style={{ fontSize: '0.55rem', opacity: 0.9, lineHeight: 1.3, textAlign: 'left' }}>
-          {data.metadata.filters.map((filter, index) => (
-            <div key={index} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              • {filter}
-            </div>
-          ))}
+    <div className={`
+      relative group
+      bg-gradient-to-br from-orange-400 to-amber-500
+      rounded-xl p-3 min-w-[140px] max-w-[180px]
+      shadow-[0_0_20px_rgba(251,146,60,0.3)]
+      ${selected ? 'ring-2 ring-white ring-offset-2' : ''}
+      transition-all duration-300 ease-out
+      hover:scale-105 hover:shadow-xl
+      cursor-pointer
+    `}>
+      {/* Glassmorphism overlay */}
+      <div className="absolute inset-0 rounded-xl bg-white/10 backdrop-blur-sm" />
+      
+      {/* Content */}
+      <div className="relative z-10">
+        <div className="flex items-center gap-2 text-white mb-2">
+          <div className="p-1.5 bg-white/20 rounded-lg">
+            <Filter size={14} />
+          </div>
+          <span className="font-semibold text-sm">Filter</span>
+          {filters.length > 0 && (
+            <span className="ml-auto px-1.5 py-0.5 bg-white/20 rounded text-xs">
+              {filters.length}
+            </span>
+          )}
         </div>
-      )}
-      <Handle type="source" position={Position.Right} style={handleStyle} />
+        
+        {filters.length > 0 && (
+          <div className="space-y-1 text-white/90 text-xs">
+            {filters.slice(0, 3).map((filter, index) => (
+              <div key={index} className="flex items-center gap-1.5">
+                <Check size={10} className="opacity-70 flex-shrink-0" />
+                <span className="truncate">{filter}</span>
+              </div>
+            ))}
+            {filters.length > 3 && (
+              <div className="text-white/70 text-[10px] pl-4">
+                +{filters.length - 3} more
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Handles */}
+      <Handle 
+        type="target" 
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-white !border-2 !border-orange-400 !-left-1.5 transition-transform hover:scale-125"
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right}
+        className="!w-3 !h-3 !bg-white !border-2 !border-orange-400 !-right-1.5 transition-transform hover:scale-125"
+      />
     </div>
   );
 };

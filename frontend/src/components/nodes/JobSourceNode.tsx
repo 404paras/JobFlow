@@ -1,5 +1,5 @@
 import { Handle, Position } from '@xyflow/react';
-import { Linkedin, Globe, Building2, MapPin, FileText, Search, Rocket } from 'lucide-react';
+import { Linkedin, Globe, Building2, MapPin, Briefcase, Search, Rocket } from 'lucide-react';
 
 export type JobSourceType = 'linkedin' | 'remoteok' | 'naukri' | 'google' | 'wellfound';
 
@@ -13,78 +13,93 @@ interface JobSourceNodeProps {
       location?: string;
     };
   };
+  selected?: boolean;
 }
 
-const handleStyle = {
-  width: '10px',
-  height: '10px',
-  background: '#fff',
-  border: '2px solid #6366f1',
-};
-
-export const JobSourceNode = ({ data }: JobSourceNodeProps) => {
-  const colors = {
-    linkedin: { bg: 'linear-gradient(135deg, #0077b5 0%, #00a0dc 100%)', shadow: '0 2px 8px rgba(0, 119, 181, 0.3)' },
-    remoteok: { bg: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', shadow: '0 2px 8px rgba(16, 185, 129, 0.3)' },
-    naukri: { bg: 'linear-gradient(135deg, #ed1c24 0%, #ff4757 100%)', shadow: '0 2px 8px rgba(237, 28, 36, 0.3)' },
-    google: { bg: 'linear-gradient(135deg, #4285f4 0%, #34a853 50%, #fbbc05 100%)', shadow: '0 2px 8px rgba(66, 133, 244, 0.3)' },
-    wellfound: { bg: 'linear-gradient(135deg, #000000 0%, #333333 100%)', shadow: '0 2px 8px rgba(0, 0, 0, 0.3)' },
+export const JobSourceNode = ({ data, selected }: JobSourceNodeProps) => {
+  const themes = {
+    linkedin: { 
+      gradient: 'from-[#0077b5] to-[#00a0dc]',
+      glow: 'shadow-[0_0_20px_rgba(0,119,181,0.3)]',
+      icon: Linkedin
+    },
+    remoteok: { 
+      gradient: 'from-emerald-500 to-teal-400',
+      glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
+      icon: Globe
+    },
+    naukri: { 
+      gradient: 'from-red-500 to-rose-400',
+      glow: 'shadow-[0_0_20px_rgba(239,68,68,0.3)]',
+      icon: Building2
+    },
+    google: { 
+      gradient: 'from-blue-500 via-green-500 to-yellow-500',
+      glow: 'shadow-[0_0_20px_rgba(66,133,244,0.3)]',
+      icon: Search
+    },
+    wellfound: { 
+      gradient: 'from-slate-800 to-slate-600',
+      glow: 'shadow-[0_0_20px_rgba(0,0,0,0.3)]',
+      icon: Rocket
+    },
   };
 
-  const getIcon = () => {
-    switch (data.jobType) {
-      case 'linkedin': return <Linkedin size={12} />;
-      case 'remoteok': return <Globe size={12} />;
-      case 'naukri': return <Building2 size={12} />;
-      case 'google': return <Search size={12} />;
-      case 'wellfound': return <Rocket size={12} />;
-      default: return <Globe size={12} />;
-    }
-  };
+  const theme = themes[data.jobType] || themes.remoteok;
+  const Icon = theme.icon;
 
   return (
-    <div
-      style={{
-        background: colors[data.jobType!]?.bg || colors.remoteok.bg,
-        color: 'white',
-        padding: '8px 12px',
-        borderRadius: '8px',
-        border: 'none',
-        fontWeight: '500',
-        fontSize: '0.7rem',
-        minWidth: '100px',
-        maxWidth: '140px',
-        textAlign: 'center',
-        boxShadow: colors[data.jobType!]?.shadow || colors.remoteok.shadow,
-        cursor: 'pointer',
-        transition: 'transform 0.2s',
-        position: 'relative',
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-    >
-      <Handle type="target" position={Position.Left} style={handleStyle} />
-      <div className="flex items-center justify-center gap-1 font-semibold mb-1">
-        {getIcon()}
-        <span>{data.label}</span>
-      </div>
-      {data.metadata && (
-        <div style={{ fontSize: '0.55rem', opacity: 0.9, lineHeight: 1.3 }}>
-          {data.metadata.jobType && (
-            <div className="flex items-center gap-1 justify-center">
-              <FileText size={8} />
-              <span>{data.metadata.jobType}</span>
-            </div>
-          )}
-          {data.metadata.location && (
-            <div className="flex items-center gap-1 justify-center">
-              <MapPin size={8} />
-              <span>{data.metadata.location}</span>
-            </div>
-          )}
+    <div className={`
+      relative group
+      bg-gradient-to-br ${theme.gradient}
+      rounded-xl p-3 min-w-[140px]
+      ${theme.glow}
+      ${selected ? 'ring-2 ring-white ring-offset-2 ring-offset-transparent' : ''}
+      transition-all duration-300 ease-out
+      hover:scale-105 hover:shadow-xl
+      cursor-pointer
+    `}>
+      {/* Glassmorphism overlay */}
+      <div className="absolute inset-0 rounded-xl bg-white/10 backdrop-blur-sm" />
+      
+      {/* Content */}
+      <div className="relative z-10">
+        <div className="flex items-center gap-2 text-white mb-2">
+          <div className="p-1.5 bg-white/20 rounded-lg">
+            <Icon size={14} />
+          </div>
+          <span className="font-semibold text-sm">{data.label}</span>
         </div>
-      )}
-      <Handle type="source" position={Position.Right} style={handleStyle} />
+        
+        {data.metadata && (
+          <div className="space-y-1 text-white/90 text-xs">
+            {data.metadata.jobType && (
+              <div className="flex items-center gap-1.5">
+                <Briefcase size={10} className="opacity-70" />
+                <span>{data.metadata.jobType}</span>
+              </div>
+            )}
+            {data.metadata.location && (
+              <div className="flex items-center gap-1.5">
+                <MapPin size={10} className="opacity-70" />
+                <span className="truncate max-w-[100px]">{data.metadata.location}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Handles with glow effect */}
+      <Handle 
+        type="target" 
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-white !border-2 !border-current !-left-1.5 transition-transform hover:scale-125"
+      />
+      <Handle 
+        type="source" 
+        position={Position.Right}
+        className="!w-3 !h-3 !bg-white !border-2 !border-current !-right-1.5 transition-transform hover:scale-125"
+      />
     </div>
   );
 };

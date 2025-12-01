@@ -1,35 +1,44 @@
 import { Handle, Position } from '@xyflow/react';
 import { Zap } from 'lucide-react';
 
-const handleStyle = {
-  width: '10px',
-  height: '10px',
-  background: '#fff',
-  border: '2px solid #764ba2',
-};
+interface JobTriggerNodeProps {
+  data: { label: string };
+  selected?: boolean;
+}
 
-export const JobTriggerNode = ({ data }: { data: { label: string } }) => {
+export const JobTriggerNode = ({ data, selected }: JobTriggerNodeProps) => {
   return (
-    <div
-      style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        padding: '8px 16px',
-        borderRadius: '8px',
-        border: 'none',
-        fontWeight: '600',
-        fontSize: '0.75rem',
-        minWidth: '100px',
-        textAlign: 'center',
-        boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
-        position: 'relative',
-      }}
-    >
-      <div className="flex items-center justify-center gap-1">
-        <Zap size={14} />
-        <span>{data.label}</span>
+    <div className={`
+      relative group
+      bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500
+      rounded-xl p-4 min-w-[120px]
+      shadow-[0_0_25px_rgba(139,92,246,0.4)]
+      ${selected ? 'ring-2 ring-white ring-offset-2' : ''}
+      transition-all duration-300 ease-out
+      hover:scale-105 hover:shadow-[0_0_35px_rgba(139,92,246,0.5)]
+      cursor-pointer
+    `}>
+      {/* Animated pulse ring */}
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 animate-pulse opacity-50" />
+      
+      {/* Glassmorphism overlay */}
+      <div className="absolute inset-0 rounded-xl bg-white/10 backdrop-blur-sm" />
+      
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center gap-2">
+        <div className="p-2 bg-white/20 rounded-full">
+          <Zap size={18} className="text-white" />
+        </div>
+        <span className="font-bold text-white text-sm tracking-wide">{data.label}</span>
       </div>
-      <Handle type="source" position={Position.Right} style={handleStyle} id="trigger-source" />
+
+      {/* Source handle */}
+      <Handle 
+        type="source" 
+        position={Position.Right}
+        id="trigger-source"
+        className="!w-4 !h-4 !bg-white !border-2 !border-purple-400 !-right-2 transition-transform hover:scale-125"
+      />
     </div>
   );
 };

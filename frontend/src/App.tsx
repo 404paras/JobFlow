@@ -1,11 +1,13 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { AuthProvider, useAuth } from "./contexts/AuthContext"
 import { Toaster } from "./components/ui/sonner"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 import Home from "./pages/Home"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
 import WorkflowList from "./pages/WorkflowList"
 import Workflow from "./components/Workflow"
+import AdminDashboard from "./pages/AdminDashboard"
 
 // Protected Route Component - redirects to login if not authenticated
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -74,18 +76,25 @@ function AppRoutes() {
           <Workflow />
         </ProtectedRoute>
       } />
+      <Route path="/admin" element={
+        <ProtectedRoute>
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
     </Routes>
   );
 }
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppRoutes />
-        <Toaster position="top-right" richColors closeButton />
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <AppRoutes />
+          <Toaster position="top-right" richColors closeButton />
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   )
 }
 

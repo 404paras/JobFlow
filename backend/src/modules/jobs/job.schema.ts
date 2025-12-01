@@ -4,7 +4,7 @@ import { z } from 'zod';
 // Job Schemas
 // ============================================
 
-export const jobSourceEnum = z.enum(['linkedin', 'indeed', 'naukri']);
+export const jobSourceEnum = z.enum(['linkedin', 'naukri', 'remoteok', 'google', 'wellfound']);
 
 export const createJobSchema = z.object({
   uid: z.string().min(1),
@@ -44,7 +44,7 @@ export const filterCriteriaSchema = z.object({
   company: z.string().optional(),
   location: z.string().optional(),
   minSalary: z.coerce.number().positive().optional(),
-  source: z.enum(['linkedin', 'indeed', 'naukri', 'any']).optional(),
+  source: z.enum(['linkedin', 'naukri', 'remoteok', 'google', 'wellfound', 'any']).optional(),
 });
 
 // ============================================

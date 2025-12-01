@@ -12,7 +12,7 @@ const WorkflowNodePositionSchema = z.object({
 const WorkflowNodeDataSchema = z.object({
   label: z.string(),
   type: z.enum(['trigger', 'job-source', 'normalize-data', 'filter', 'daily-email']),
-  jobType: z.enum(['linkedin', 'indeed', 'naukri']).optional(),
+  jobType: z.enum(['linkedin', 'naukri', 'remoteok', 'google', 'wellfound']).optional(),
   filterCount: z.number().optional(),
   metadata: z.record(z.any()).optional(),
 });

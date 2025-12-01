@@ -10,8 +10,9 @@ export interface IUser {
   password: string;
   name: string;
   isActive: boolean;
+  isAdmin: boolean;
   lastLoginAt?: Date;
-  workflows: mongoose.Types.ObjectId[]; // Array of workflow ObjectIds created by this user
+  workflows: mongoose.Types.ObjectId[];
   workflowCount: number;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +57,10 @@ const UserSchema = new Schema<IUserDocument>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    isAdmin: {
+      type: Boolean,
+      default: false,
     },
     lastLoginAt: {
       type: Date,

@@ -28,15 +28,45 @@ export default function WorkflowList() {
   const [executingWorkflow, setExecutingWorkflow] = useState<string | null>(null);
   const [activatingWorkflow, setActivatingWorkflow] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; workflowId: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorDialog, setErrorDialog] = useState<{ open: boolean; message: string } | null>(null);
 
   useEffect(() => {
     loadWorkflows();
     loadRunningWorkflows();
     
-    // Poll for running workflows status (every 30 seconds instead of 5)
-    const interval = setInterval(loadRunningWorkflows, 30000);
-    return () => clearInterval(interval);
+    // Poll for running workflows only when tab is visible
+    let interval: ReturnType<typeof setInterval> | null = null;
+    
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(loadRunningWorkflows, 30000);
+      }
+    };
+    
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        loadRunningWorkflows(); // Refresh immediately when visible
+        startPolling();
+      }
+    };
+    
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadWorkflows = async () => {
@@ -70,19 +100,21 @@ export default function WorkflowList() {
   const confirmDelete = async () => {
     if (!deleteDialog) return;
     
+    setIsDeleting(true);
     try {
       await api.deleteWorkflow(deleteDialog.workflowId);
       setWorkflows(workflows.filter((w) => w.workflowId !== deleteDialog.workflowId));
       toast.success('Workflow deleted', {
         description: `"${deleteDialog.title}" has been deleted.`,
       });
+      setDeleteDialog(null);
     } catch (error: any) {
       console.error('Failed to delete workflow:', error);
       toast.error('Failed to delete workflow', {
         description: error.message || 'Please try again.',
       });
     } finally {
-      setDeleteDialog(null);
+      setIsDeleting(false);
     }
   };
 
@@ -524,12 +556,20 @@ export default function WorkflowList() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
             >
-              Delete
+              {isDeleting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

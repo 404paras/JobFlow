@@ -781,18 +781,36 @@ function Workflow() {
                 onClick={() => saveWorkflow('draft')}
                 variant="outline"
                 disabled={isSaving}
-                className="font-medium border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="font-medium border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                <Save size={16} className="mr-1" />
-                Save
+                {isSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} className="mr-1" />
+                    Save
+                  </>
+                )}
               </Button>
               <Button
                 onClick={() => saveWorkflow('published')}
                 disabled={isSaving}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-200"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-200 disabled:opacity-50"
               >
-                <Rocket size={16} className="mr-1" />
-                Publish
+                {isSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <Rocket size={16} className="mr-1" />
+                    Publish
+                  </>
+                )}
               </Button>
             </>
           )}
@@ -881,10 +899,44 @@ function Workflow() {
             >
               <Mail size={20} className="mr-4" />
               <div className="text-left">
-                <div className="font-semibold">Daily Email</div>
-                <div className="text-xs opacity-90">Send automated email reports</div>
+                <div className="font-semibold">New Email Node</div>
+                <div className="text-xs opacity-90">Create new email destination</div>
               </div>
             </Button>
+
+            {/* Show existing email nodes */}
+            {nodes.filter(n => n.data.type === 'daily-email').length > 0 && (
+              <>
+                <div className="text-sm font-medium text-gray-500 pt-2">Or connect to existing:</div>
+                {nodes.filter(n => n.data.type === 'daily-email').map((emailNode) => (
+                  <Button 
+                    key={emailNode.id}
+                    onClick={() => {
+                      if (pendingConnection) {
+                        const newEdge: WorkflowEdge = {
+                          id: `edge-${pendingConnection.source}-${emailNode.id}`,
+                          source: pendingConnection.source,
+                          target: emailNode.id,
+                          sourceHandle: pendingConnection.sourceHandle || null,
+                          targetHandle: pendingConnection.targetHandle || null,
+                        };
+                        setEdges((eds) => addEdge(newEdge, eds) as WorkflowEdge[]);
+                        setPendingConnection(null);
+                      }
+                      setShowNodeSelection(false);
+                    }}
+                    variant="outline"
+                    className="w-full h-12 border-amber-200 hover:bg-amber-50 hover:border-amber-300 justify-start px-6"
+                  >
+                    <Mail size={18} className="mr-3 text-amber-500" />
+                    <div className="text-left">
+                      <div className="font-medium text-gray-700">{emailNode.data.metadata?.recipients || 'Email Node'}</div>
+                      <div className="text-xs text-gray-500">{emailNode.data.metadata?.schedule || 'Daily'}</div>
+                    </div>
+                  </Button>
+                ))}
+              </>
+            )}
           </div>
         </SheetContent>
       </Sheet>
