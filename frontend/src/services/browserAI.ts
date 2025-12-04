@@ -145,6 +145,22 @@ export interface SkillGap {
   priority: 'high' | 'medium' | 'low';
 }
 
+export interface NormalizedJobData {
+  extractedSalary?: {
+    min: number;
+    max: number;
+    currency: string;
+    period: 'year' | 'month' | 'hour' | 'week';
+  };
+  extractedLocation?: {
+    type: 'remote' | 'onsite' | 'hybrid';
+    city?: string;
+    country?: string;
+  };
+  normalizedRole?: string;
+  skillsFound: string[];
+}
+
 type LoadingCallback = (progress: number, status: string) => void;
 
 class BrowserAIService {
@@ -392,6 +408,116 @@ class BrowserAIService {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 30)
       .map(([word]) => word);
+  }
+
+  normalizeJob(title: string, description: string, location: string, salary?: string): NormalizedJobData {
+    const extractedSalary = this.extractSalary(salary || description);
+    const extractedLocation = this.extractLocation(location || description);
+    const normalizedRole = this.extractRole(title);
+    const skillsFound = this.extractSkills(description).technical;
+
+    return {
+      extractedSalary,
+      extractedLocation,
+      normalizedRole,
+      skillsFound,
+    };
+  }
+
+  private extractSalary(text: string): NormalizedJobData['extractedSalary'] {
+    // Regex for salary ranges like "$100k-$150k", "100,000 - 150,000", "50-60k/yr"
+    // Also captures currency and period if available
+    const salaryPatterns = [
+      /([$€£¥])?\s*(\d{1,3}(?:,\d{3})*(?:k)?)\s*[-to]+\s*([$€£¥])?\s*(\d{1,3}(?:,\d{3})*(?:k)?)\s*(\/)?\s*(year|yr|month|mo|hr|hour|week|wk)?/i,
+      /([$€£¥])\s*(\d{1,3}(?:,\d{3})*(?:k)?)\s*(\/)?\s*(year|yr|month|mo|hr|hour|week|wk)?/i
+    ];
+
+    for (const pattern of salaryPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        // This is a simplified extraction logic for demonstration
+        // A robust implementation would handle various currencies and number formats more carefully
+        const currency = match[1] || match[3] || '$'; // Default to USD
+        
+        let min = 0;
+        let max = 0;
+        let period: 'year' | 'month' | 'hour' | 'week' = 'year';
+
+        // Helper to parse "100k" or "100,000"
+        const parseNum = (str: string) => {
+          if (!str) return 0;
+          str = str.toLowerCase();
+          if (str.endsWith('k')) {
+            return parseFloat(str.replace('k', '')) * 1000;
+          }
+          return parseFloat(str.replace(/,/g, ''));
+        };
+
+        if (match[2] && match[4] && !match[5]) { // Range: 100k - 150k
+          min = parseNum(match[2]);
+          max = parseNum(match[4]);
+        } else if (match[2]) { // Single value: 100k
+           min = parseNum(match[2]);
+           max = min;
+        }
+
+        const periodStr = (match[6] || match[4] || '').toLowerCase(); // Capture period
+        if (periodStr.startsWith('mo')) period = 'month';
+        else if (periodStr.startsWith('h')) period = 'hour';
+        else if (periodStr.startsWith('w')) period = 'week';
+        
+        // Sanity check
+        if (min > 0) {
+            return { min, max, currency, period };
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private extractLocation(text: string): NormalizedJobData['extractedLocation'] {
+    const textLower = text.toLowerCase();
+    
+    let type: 'remote' | 'onsite' | 'hybrid' = 'onsite';
+    if (textLower.includes('remote') || textLower.includes('work from home') || textLower.includes('wfh')) {
+      type = 'remote';
+    } else if (textLower.includes('hybrid')) {
+      type = 'hybrid';
+    }
+
+    // Very basic city/country extraction (would need a large dataset for high accuracy)
+    // Here we just look for common patterns or simple words if it looks like a location string
+    // This is placeholder logic for specific city extraction
+    let city = undefined;
+    let country = undefined;
+    
+    // If the input 'text' is short (e.g. from the location field), use it as city/region
+    if (text.length < 50 && text.length > 2) {
+       const parts = text.split(',').map(s => s.trim());
+       if (parts.length > 0) city = parts[0];
+       if (parts.length > 1) country = parts[parts.length - 1];
+    }
+
+    return { type, city, country };
+  }
+
+  private extractRole(title: string): string {
+    const roles = [
+      'Frontend Developer', 'Backend Developer', 'Full Stack Developer',
+      'Software Engineer', 'DevOps Engineer', 'Data Scientist',
+      'Product Manager', 'Project Manager', 'UI/UX Designer',
+      'QA Engineer', 'Mobile Developer', 'System Administrator'
+    ];
+    
+    const titleLower = title.toLowerCase();
+    for (const role of roles) {
+      if (titleLower.includes(role.toLowerCase())) {
+        return role;
+      }
+    }
+    
+    // Fallback: Clean up the title a bit
+    return title.split(/[|\-(]/)[0].trim();
   }
 
   async calculateMatchScore(

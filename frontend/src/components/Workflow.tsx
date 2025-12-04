@@ -681,6 +681,13 @@ function Workflow() {
       // Set read-only mode if publishing
       if (status === 'published') {
         setIsReadOnly(true);
+        // Automatically activate when publishing
+        try {
+          await api.activateWorkflow(workflowId);
+        } catch (error) {
+          console.warn('Failed to auto-activate workflow:', error);
+          // Don't block the save if activation fails, but user might need to manually activate
+        }
       }
       
       // Navigate to workflows list after successful save

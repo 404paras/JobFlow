@@ -64,6 +64,22 @@ export type Job = {
   updatedAt: string;
 };
 
+export type NormalizedJob = {
+  extractedSalary?: {
+    min: number;
+    max: number;
+    currency: string;
+    period: 'year' | 'month' | 'hour' | 'week';
+  };
+  extractedLocation?: {
+    type: 'remote' | 'onsite' | 'hybrid';
+    city?: string;
+    country?: string;
+  };
+  normalizedRole?: string;
+  skillsFound: string[];
+};
+
 export type JobCounts = {
   total: number;
   new: number;

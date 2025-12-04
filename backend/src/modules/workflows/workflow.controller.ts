@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { workflowService } from './workflow.service';
+import { schedulerService } from '../scheduler/scheduler.service';
 import { CreateWorkflowInput, UpdateWorkflowInput, WorkflowQueryParams } from './workflow.schema';
 import { asyncHandler } from '../../shared/utils/async-handler';
 import { ApiResponse } from '../../shared/types';
@@ -136,6 +137,9 @@ export class WorkflowController {
     const userId = (req as any).userId;
 
     const workflow = await workflowService.activate(id, userId);
+    
+    // Refresh scheduler for this workflow
+    schedulerService.scheduleWorkflow(workflow);
 
     const response: ApiResponse = {
       success: true,
@@ -154,6 +158,9 @@ export class WorkflowController {
     const { id } = req.params;
 
     const workflow = await workflowService.deactivate(id);
+    
+    // Remove from scheduler
+    schedulerService.unscheduleWorkflow(id);
 
     const response: ApiResponse = {
       success: true,
